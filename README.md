@@ -109,7 +109,7 @@ All passwords are set to the base username followed by `123`.
     PORT=5000
     DATABASE_URL=postgresql://your_db_username:your_db_password@your_db_host/your_db_name?sslmode=require
     JWT_SECRET=your_jwt_signing_secret_key
-    JWT_EXPIRES_IN=7d
+    JWT_EXPIRES_IN=30d
     NODE_ENV=development
     USE_MOCK_DB=true
    ```

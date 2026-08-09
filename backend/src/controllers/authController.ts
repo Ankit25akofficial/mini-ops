@@ -6,7 +6,7 @@ import { AuthRequest } from '../middleware/auth';
 import { z } from 'zod';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkeyforelerpcrmoperationsportal2026';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '30d';
 
 // Validation schemas
 export const loginSchema = z.object({
