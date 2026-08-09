@@ -75,6 +75,17 @@ A modern, full-stack Enterprise Resource Planning (ERP) and Customer Relationshi
 ```
 
 ---
+Screenshot~
+admin page -
+<img width="1917" height="877" alt="image" src="https://github.com/user-attachments/assets/c7c92b20-f9ad-4966-be54-d99dcf11fdbe" />
+admin page light mod-
+<img width="1917" height="877" alt="image" src="https://github.com/user-attachments/assets/595c1cc6-f33f-4304-a7dc-a4b5e72c37c3" />
+menu button-
+<img width="515" height="863" alt="image" src="https://github.com/user-attachments/assets/9af35500-aba3-41a3-9869-4eaa7e3a91ce" />
+Sales Challan Directory
+<img width="1917" height="862" alt="image" src="https://github.com/user-attachments/assets/e165a755-fe3f-4631-b74a-548c0aac84bb" />
+if wrong link-
+<img width="1917" height="851" alt="image" src="https://github.com/user-attachments/assets/3a16c054-8428-4e33-b050-c485637a9e15" />
 
 ## 🔑 Pre-Seeded Demo Credentials
 
