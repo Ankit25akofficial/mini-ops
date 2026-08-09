@@ -1,0 +1,29 @@
+services:
+  # Backend Web Service on Render
+  - type: web
+    name: erp-crm-backend
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false # Set manually in Render dashboard pointing to Neon DB
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+
+  # Frontend Static Hosting (Vercel/Render)
+  - type: static
+    name: erp-crm-frontend
+    env: static
+    buildCommand: cd frontend && npm install --legacy-peer-deps && npm run build
+    publishPath: frontend/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
