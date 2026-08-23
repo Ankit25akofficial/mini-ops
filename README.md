@@ -1,8 +1,36 @@
 # 🌐 Mini Operations ERP System
 
+
 A modern, full-stack Enterprise Resource Planning (ERP) system tailored for warehouse operations, inventory tracking, and order fulfillment. Built with strict role-based controls, transaction-safe inventory tracking, dynamic material shortage calculations, and an interactive frontend portal.
 
 ---
+
+## 🚀 Live Demo
+
+**▶ [https://mini-ops-xe6j.vercel.app](https://mini-ops-xe6j.vercel.app)**
+
+| Role | Username | Password | Access |
+|:---|:---|:---|:---|
+| Admin | `admin` | `admin123` | Full access — all modules |
+| Operations | `ops` | `ops123` | Inventory, Work Orders, Transfers |
+| Sales | `sales` | `sales123` | Sales Orders only |
+
+---
+
+## 📸 Screenshots
+
+### Dashboard — Operational Overview
+![Dashboard](docs/screenshots/dashboard.png)
+
+### Inventory Management
+![Inventory](docs/screenshots/inventory.png)
+
+### Work Orders & Internal Transfers
+![Work Orders and Transfers](docs/screenshots/workorders_transfers.png)
+
+---
+
+
 
 ## 🛠️ Technology Stack
 
