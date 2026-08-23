@@ -94,6 +94,40 @@ class MockDatabase {
       { id: 4, inventory_id: 4, transaction_type: 'ADJUSTMENT', quantity: 50, created_by: 2, created_at: new Date() }
     );
     this.inventoryTransactionIdSeq = 5;
+
+    // 8. Work Orders
+    this.work_orders.push(
+      { id: 1, location_id: 2, item_id: 1, required_quantity: 50, assigned_user_id: 2, status: 'ASSIGNED', created_at: new Date() },
+      { id: 2, location_id: 1, item_id: 2, required_quantity: 100, assigned_user_id: 1, status: 'COMPLETED', created_at: new Date() }
+    );
+    this.workOrderIdSeq = 3;
+
+    // 9. Transfers
+    this.transfers.push(
+      { id: 1, source_location_id: 1, destination_location_id: 2, item_id: 1, quantity: 10, batch: 'BATCH-2026A', status: 'DISPATCHED', created_at: new Date() },
+      { id: 2, source_location_id: 1, destination_location_id: 2, item_id: 3, quantity: 5, batch: null, status: 'REQUESTED', created_at: new Date() }
+    );
+    this.transferIdSeq = 3;
+
+    // 10. Customer Orders
+    this.customer_orders.push(
+      { id: 1, customer_name: 'John Doe Stores', status: 'PENDING', sales_user_id: 3, created_at: new Date() },
+      { id: 2, customer_name: 'Jane Smith Supplies', status: 'COMPLETED', sales_user_id: 3, created_at: new Date() }
+    );
+    this.customerOrderIdSeq = 3;
+
+    // 11. Order Items
+    this.order_items.push(
+      { id: 1, order_id: 1, item_id: 1, location_id: 1, batch: 'BATCH-2026A', quantity: 5, price: 1200.00 },
+      { id: 2, order_id: 2, item_id: 2, location_id: 1, batch: 'BATCH-2026B', quantity: 20, price: 45.00 }
+    );
+    this.orderItemIdSeq = 3;
+
+    // Reflect customer order 1 (5 laptops) in inventory:
+    const laptopInv = this.inventory.find(i => i.id === 1);
+    if (laptopInv) {
+      laptopInv.reserved_quantity = 5;
+    }
   }
 
   async executeQuery(sql: string, params: any[] = []): Promise<{ rows: any[]; count?: number }> {

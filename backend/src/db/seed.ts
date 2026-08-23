@@ -119,6 +119,7 @@ async function seed() {
 
     // 8. Seed Initial Transactions
     const opsUser = users.find(u => u.username === 'ops');
+    const adminUser = users.find(u => u.username === 'admin');
     if (opsUser) {
       for (const inv of inventories) {
         await pool.query(`
@@ -127,6 +128,57 @@ async function seed() {
         `, [inv.id, opsUser.id]);
       }
       console.log('Seeded initial inventory transactions.');
+    }
+
+    // 9. Seed Work Orders
+    if (opsUser && adminUser) {
+      await pool.query(`
+        INSERT INTO work_orders (location_id, item_id, required_quantity, assigned_user_id, status) VALUES
+        ($1, $2, 50, $3, 'ASSIGNED'),
+        ($4, $5, 100, $6, 'COMPLETED')
+      `, [secLocId, laptopId, opsUser.id, mainLocId, kbdId, adminUser.id]);
+      console.log('Seeded initial work orders.');
+    }
+
+    // 10. Seed Transfers
+    await pool.query(`
+      INSERT INTO transfers (source_location_id, destination_location_id, item_id, quantity, batch, status) VALUES
+      ($1, $2, $3, 10, 'BATCH-2026A', 'DISPATCHED'),
+      ($1, $2, $4, 5, NULL, 'REQUESTED')
+    `, [mainLocId, secLocId, laptopId, chairId]);
+    console.log('Seeded initial internal transfers.');
+
+    // 11. Seed Customer Orders
+    const salesUser = users.find(u => u.username === 'sales');
+    if (salesUser) {
+      const coRes = await pool.query(`
+        INSERT INTO customer_orders (customer_name, status, sales_user_id) VALUES
+        ('John Doe Stores', 'PENDING', $1),
+        ('Jane Smith Supplies', 'COMPLETED', $1)
+        RETURNING id, customer_name
+      `, [salesUser.id]);
+      const customerOrders = coRes.rows;
+      console.log(`Seeded ${customerOrders.length} customer orders.`);
+
+      const order1Id = customerOrders.find(co => co.customer_name === 'John Doe Stores')?.id;
+      const order2Id = customerOrders.find(co => co.customer_name === 'Jane Smith Supplies')?.id;
+
+      if (order1Id && order2Id) {
+        // 12. Seed Order Items
+        await pool.query(`
+          INSERT INTO order_items (order_id, item_id, location_id, batch, quantity, price) VALUES
+          ($1, $3, $5, 'BATCH-2026A', 5, 1200.00),
+          ($2, $4, $5, 'BATCH-2026B', 20, 45.00)
+        `, [order1Id, order2Id, laptopId, kbdId, mainLocId]);
+        console.log('Seeded customer order items.');
+
+        // Update Laptop reservation:
+        await pool.query(`
+          UPDATE inventory SET reserved_quantity = 5 
+          WHERE item_id = $1 AND location_id = $2 AND batch = 'BATCH-2026A'
+        `, [laptopId, mainLocId]);
+        console.log('Updated initial stock reservations.');
+      }
     }
 
     console.log('Database seeding finished successfully.');
