@@ -2,6 +2,7 @@ import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import apiRoutes from './routes';
+import { setupSwagger } from './config/swagger';
 
 dotenv.config();
 
@@ -14,6 +15,9 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json());
+
+// Setup Swagger API docs
+setupSwagger(app);
 
 // Main API routes
 app.use('/api', apiRoutes);

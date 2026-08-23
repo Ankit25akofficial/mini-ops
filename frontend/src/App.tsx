@@ -5,9 +5,10 @@ import { ThemeProvider } from './context/ThemeContext';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
-import Customers from './pages/Customers';
-import Products from './pages/Products';
-import Challans from './pages/Challans';
+import Inventory from './pages/Inventory';
+import WorkOrders from './pages/WorkOrders';
+import Transfers from './pages/Transfers';
+import CustomerOrders from './pages/CustomerOrders';
 import NotFound from './components/NotFound';
 
 // Protected Route Guard
@@ -66,9 +67,10 @@ function App() {
               }
             >
               <Route index element={<Dashboard />} />
-              <Route path="customers" element={<Customers />} />
-              <Route path="products" element={<Products />} />
-              <Route path="challans" element={<Challans />} />
+              <Route path="inventory" element={<Inventory />} />
+              <Route path="work-orders" element={<WorkOrders />} />
+              <Route path="transfers" element={<Transfers />} />
+              <Route path="orders" element={<CustomerOrders />} />
               <Route path="*" element={<NotFound />} />
             </Route>
           </Routes>

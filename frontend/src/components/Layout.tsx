@@ -9,9 +9,10 @@ const Layout = () => {
   const { theme } = useAppTheme();
   const menuItems = [
     { label: 'Dashboard', ariaLabel: 'Go to dashboard', link: '/' },
-    { label: 'Customers CRM', ariaLabel: 'Manage customer accounts', link: '/customers' },
-    { label: 'Product Stock', ariaLabel: 'Check warehouse stock counts', link: '/products' },
-    { label: 'Sales Challans', ariaLabel: 'Manage sales dispatches', link: '/challans' }
+    { label: 'Inventory', ariaLabel: 'Check warehouse stock counts', link: '/inventory' },
+    { label: 'Work Orders', ariaLabel: 'Manage work orders', link: '/work-orders' },
+    { label: 'Internal Transfers', ariaLabel: 'Manage stock transfers', link: '/transfers' },
+    { label: 'Customer Orders', ariaLabel: 'Manage customer sales orders', link: '/orders' }
   ];
 
   const socialItems = [

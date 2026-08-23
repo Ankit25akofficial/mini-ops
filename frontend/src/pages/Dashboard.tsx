@@ -5,13 +5,14 @@ import api from '../services/api';
 import Loader from '../components/Loader';
 import { useAuth } from '../context/AuthContext';
 import { 
-  Users, 
+  ShoppingBag, 
   Package, 
-  Receipt, 
-  AlertTriangle, 
+  Settings, 
+  Truck, 
   Plus, 
   ArrowRight,
-  TrendingUp
+  TrendingUp,
+  AlertTriangle
 } from 'lucide-react';
 
 const Dashboard = () => {
@@ -19,47 +20,71 @@ const Dashboard = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
-    customersCount: 0,
-    activeCustomers: 0,
-    productsCount: 0,
-    alertProducts: 0,
-    challansCount: 0,
-    confirmedChallans: 0,
+    ordersCount: 0,
+    pendingOrders: 0,
+    itemsCount: 0,
+    alertStocks: 0,
+    workOrdersCount: 0,
+    activeWorkOrders: 0,
+    transfersCount: 0,
+    pendingTransfers: 0,
     revenue: 0,
   });
 
-  const [recentChallans, setRecentChallans] = useState<any[]>([]);
+  const [recentOrders, setRecentOrders] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        // Fetch customers list
-        const custRes = await api.get('/customers');
-        const customers = custRes.data.customers || [];
-        const activeCusts = customers.filter((c: any) => c.status === 'Active').length;
+        const [ordersRes, invRes, itemsRes, woRes, transRes] = await Promise.all([
+          api.get('/orders'),
+          api.get('/inventory'),
+          api.get('/items'),
+          api.get('/work-orders'),
+          api.get('/transfers'),
+        ]);
 
-        // Fetch products list
-        const prodRes = await api.get('/products');
-        const products = prodRes.data.products || [];
-        const alertProds = products.filter((p: any) => p.current_stock <= p.min_stock_alert).length;
+        const orders = ordersRes.data || [];
+        const pending = orders.filter((o: any) => o.status === 'PENDING').length;
+        
+        // Calculate alert items (available stock <= 10)
+        const inventory = invRes.data || [];
+        const items = itemsRes.data || [];
+        const alertInv = inventory.filter((inv: any) => (inv.physical_quantity - inv.reserved_quantity) <= 10).length;
 
-        // Fetch challans list
-        const challanRes = await api.get('/challans');
-        const challans = challanRes.data || [];
-        const confirmed = challans.filter((c: any) => c.status === 'Confirmed');
-        const revenue = confirmed.reduce((acc: number, curr: any) => acc + parseFloat(curr.total_amount), 0);
+        const workOrders = woRes.data || [];
+        const activeWO = workOrders.filter((wo: any) => wo.status !== 'COMPLETED').length;
+
+        const transfers = transRes.data || [];
+        const pendingT = transfers.filter((t: any) => t.status !== 'RECEIVED').length;
+
+        // Fetch prices from items table to compute completed orders revenue
+        // Completed orders logic
+        const completedOrders = orders.filter((o: any) => o.status === 'COMPLETED');
+        let totalRevenue = 0;
+        for (const co of completedOrders) {
+          try {
+            const coDetail = await api.get(`/orders/${co.id}`);
+            const itemsList = coDetail.data.items || [];
+            totalRevenue += itemsList.reduce((sum: number, line: any) => sum + (parseFloat(line.price) * line.quantity), 0);
+          } catch (e) {
+            // skip
+          }
+        }
 
         setStats({
-          customersCount: custRes.data.pagination?.total || customers.length,
-          activeCustomers: activeCusts,
-          productsCount: prodRes.data.pagination?.total || products.length,
-          alertProducts: alertProds,
-          challansCount: challans.length,
-          confirmedChallans: confirmed.length,
-          revenue,
+          ordersCount: orders.length,
+          pendingOrders: pending,
+          itemsCount: items.length,
+          alertStocks: alertInv,
+          workOrdersCount: workOrders.length,
+          activeWorkOrders: activeWO,
+          transfersCount: transfers.length,
+          pendingTransfers: pendingT,
+          revenue: totalRevenue,
         });
 
-        setRecentChallans(challans.slice(0, 5));
+        setRecentOrders(orders.slice(0, 5));
       } catch (err) {
         console.error('Error fetching dashboard statistics:', err);
       } finally {
@@ -74,48 +99,47 @@ const Dashboard = () => {
     return <Loader />;
   }
 
-  const isWarehouse = user?.role === 'Warehouse';
-  const isSales = user?.role === 'Sales';
-  const isAccounts = user?.role === 'Accounts';
-  const isAdmin = user?.role === 'Admin';
+  const isSales = user?.role === 'SALES';
+  const isOps = user?.role === 'OPERATIONS';
+  const isAdmin = user?.role === 'ADMIN';
 
-  const canCreateChallan = isAdmin || isSales;
-  const canAddCustomer = isAdmin || isSales;
-  const canAdjustInventory = isAdmin || isWarehouse;
-  const hasActions = canCreateChallan || canAddCustomer || canAdjustInventory;
+  const canCreateOrder = isAdmin || isSales;
+  const canCreateWO = isAdmin;
+  const canRequestTransfer = isAdmin || isOps;
+  const hasActions = canCreateOrder || canCreateWO || canRequestTransfer;
 
   return (
     <StyledDashboard>
       <div className="welcome-banner">
         <div>
-          <h2>Welcome Back!</h2>
-          <p>Here is an operational overview of your wholesale distribution network today.</p>
+          <h2>Operational Overview</h2>
+          <p>Welcome back, <strong>@{user?.username}</strong> ({user?.role}). Here is the real-time status of your supply chain network.</p>
         </div>
         <TrendingUp size={48} className="banner-icon" />
       </div>
 
       <div className="grid-stats">
-        <div className="stat-card cursor-pointer" onClick={() => navigate('/customers')}>
+        <div className="stat-card cursor-pointer" onClick={() => navigate('/orders')}>
           <div className="stat-icon-wrapper blue">
-            <Users size={24} />
+            <ShoppingBag size={24} />
           </div>
           <div className="stat-info">
-            <span className="stat-label">Total Customers</span>
-            <h3 className="stat-value">{stats.customersCount}</h3>
-            <span className="stat-subtext"><b>{stats.activeCustomers}</b> Active Accounts</span>
+            <span className="stat-label">Sales Orders</span>
+            <h3 className="stat-value">{stats.ordersCount}</h3>
+            <span className="stat-subtext"><b>{stats.pendingOrders}</b> Pending Reservation</span>
           </div>
         </div>
 
-        <div className="stat-card cursor-pointer" onClick={() => navigate('/products')}>
+        <div className="stat-card cursor-pointer" onClick={() => navigate('/inventory')}>
           <div className="stat-icon-wrapper orange">
             <Package size={24} />
           </div>
           <div className="stat-info">
-            <span className="stat-label">Product SKU Items</span>
-            <h3 className="stat-value">{stats.productsCount}</h3>
-            {stats.alertProducts > 0 ? (
+            <span className="stat-label">Catalog Products</span>
+            <h3 className="stat-value">{stats.itemsCount}</h3>
+            {stats.alertStocks > 0 ? (
               <span className="stat-subtext danger flex-align">
-                <AlertTriangle size={14} /> <b>{stats.alertProducts}</b> Low Stock Items
+                <AlertTriangle size={14} /> <b>{stats.alertStocks}</b> Batches Low Stock
               </span>
             ) : (
               <span className="stat-subtext success">All Stocks Healthy</span>
@@ -123,35 +147,35 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <div className="stat-card cursor-pointer" onClick={() => navigate('/challans')}>
-          <div className="stat-icon-wrapper green">
-            <Receipt size={24} />
+        <div className="stat-card cursor-pointer" onClick={() => navigate('/work-orders')}>
+          <div className="stat-icon-wrapper purple">
+            <Settings size={24} />
           </div>
           <div className="stat-info">
-            <span className="stat-label">Sales Challans</span>
-            <h3 className="stat-value">{stats.challansCount}</h3>
-            <span className="stat-subtext"><b>{stats.confirmedChallans}</b> Confirmed orders</span>
+            <span className="stat-label">Work Orders</span>
+            <h3 className="stat-value">{stats.workOrdersCount}</h3>
+            <span className="stat-subtext"><b>{stats.activeWorkOrders}</b> Active Production</span>
           </div>
         </div>
 
-        <div className="stat-card">
-          <div className="stat-icon-wrapper purple">
-            <TrendingUp size={24} />
+        <div className="stat-card cursor-pointer" onClick={() => navigate('/transfers')}>
+          <div className="stat-icon-wrapper green">
+            <Truck size={24} />
           </div>
           <div className="stat-info">
-            <span className="stat-label">Confirmed Revenue</span>
-            <h3 className="stat-value">₹{stats.revenue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</h3>
-            <span className="stat-subtext">Based on confirmed challans</span>
+            <span className="stat-label">Internal Transfers</span>
+            <h3 className="stat-value">{stats.transfersCount}</h3>
+            <span className="stat-subtext"><b>{stats.pendingTransfers}</b> In Transit</span>
           </div>
         </div>
       </div>
 
       <div className={`dashboard-sections ${!hasActions ? 'full-width' : ''}`}>
-        {/* Left Side: Recent Sales Challans */}
+        {/* Left Side: Recent Sales Orders */}
         <div className="section-card">
           <div className="card-header">
-            <h3>Recent Sales Challans</h3>
-            <button className="text-btn" onClick={() => navigate('/challans')}>
+            <h3>Recent Sales Orders</h3>
+            <button className="text-btn" onClick={() => navigate('/orders')}>
               View All <ArrowRight size={16} />
             </button>
           </div>
@@ -159,33 +183,28 @@ const Dashboard = () => {
             <table className="recent-table">
               <thead>
                 <tr>
-                  <th>Challan No.</th>
+                  <th>Order ID</th>
                   <th>Customer</th>
-                  <th>Amount</th>
                   <th>Status</th>
+                  <th>Date</th>
                 </tr>
               </thead>
               <tbody>
-                {recentChallans.length === 0 ? (
+                {recentOrders.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="empty-text">No challans generated yet.</td>
+                    <td colSpan={4} className="empty-text">No orders placed yet.</td>
                   </tr>
                 ) : (
-                  recentChallans.map((ch) => (
-                    <tr key={ch.id} className="cursor-pointer" onClick={() => navigate(`/challans`)}>
-                      <td><span className="font-mono">{ch.challan_number}</span></td>
+                  recentOrders.map((o) => (
+                    <tr key={o.id} className="cursor-pointer" onClick={() => navigate(`/orders`)}>
+                      <td><span className="font-mono">#{o.id}</span></td>
+                      <td><span className="cust-name font-bold">{o.customer_name}</span></td>
                       <td>
-                        <div className="cust-td">
-                          <span className="cust-name">{ch.customer_name}</span>
-                          <span className="cust-business">{ch.business_name}</span>
-                        </div>
-                      </td>
-                      <td>₹{parseFloat(ch.total_amount).toFixed(2)}</td>
-                      <td>
-                        <span className={`status-pill ${ch.status.toLowerCase()}`}>
-                          {ch.status}
+                        <span className={`status-pill ${o.status.toLowerCase()}`}>
+                          {o.status}
                         </span>
                       </td>
+                      <td>{new Date(o.created_at).toLocaleDateString('en-IN')}</td>
                     </tr>
                   ))
                 )}
@@ -198,35 +217,35 @@ const Dashboard = () => {
         {hasActions && (
           <div className="section-card actions-card">
             <div className="card-header">
-              <h3>Operation Actions</h3>
+              <h3>Action Center</h3>
             </div>
             <div className="actions-grid">
-              {canCreateChallan && (
-                <button className="action-btn blue-grad" onClick={() => navigate('/challans?create=true')}>
+              {canCreateOrder && (
+                <button className="action-btn blue-grad" onClick={() => navigate('/orders')}>
                   <Plus size={20} />
                   <div className="action-meta">
-                    <span className="action-title">Create Challan</span>
-                    <span className="action-desc">Generate new sales dispatch</span>
+                    <span className="action-title">Place Order</span>
+                    <span className="action-desc">Fulfill stock reservation</span>
                   </div>
                 </button>
               )}
 
-              {canAddCustomer && (
-                <button className="action-btn purple-grad" onClick={() => navigate('/customers?add=true')}>
+              {canCreateWO && (
+                <button className="action-btn purple-grad" onClick={() => navigate('/work-orders')}>
                   <Plus size={20} />
                   <div className="action-meta">
-                    <span className="action-title">Add Customer</span>
-                    <span className="action-desc">Register new retail/distributor lead</span>
+                    <span className="action-title">Create Work Order</span>
+                    <span className="action-desc">Schedule production run</span>
                   </div>
                 </button>
               )}
 
-              {canAdjustInventory && (
-                <button className="action-btn orange-grad" onClick={() => navigate('/products')}>
-                  <Package size={20} />
+              {canRequestTransfer && (
+                <button className="action-btn orange-grad" onClick={() => navigate('/transfers')}>
+                  <Truck size={20} />
                   <div className="action-meta">
-                    <span className="action-title">Adjust Inventory</span>
-                    <span className="action-desc">Restock or adjust stock movement</span>
+                    <span className="action-title">Transfer Stock</span>
+                    <span className="action-desc">Move batches between warehouses</span>
                   </div>
                 </button>
               )}
@@ -283,6 +302,7 @@ const StyledDashboard = styled.div`
       color: var(--text-muted);
       font-weight: 500;
       font-size: 0.95rem;
+      strong { color: var(--text-main); }
     }
 
     .banner-icon {
@@ -294,7 +314,7 @@ const StyledDashboard = styled.div`
 
   .grid-stats {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 24px;
   }
 
@@ -324,26 +344,10 @@ const StyledDashboard = styled.div`
     align-items: center;
     justify-content: center;
     
-    &.blue { 
-      background-color: rgba(59, 130, 246, 0.12); 
-      color: #60a5fa;
-      border: 1px solid rgba(59, 130, 246, 0.2);
-    }
-    &.orange { 
-      background-color: rgba(245, 158, 11, 0.12); 
-      color: #fbbf24;
-      border: 1px solid rgba(245, 158, 11, 0.2);
-    }
-    &.green { 
-      background-color: rgba(16, 185, 129, 0.12); 
-      color: #34d399;
-      border: 1px solid rgba(16, 185, 129, 0.2);
-    }
-    &.purple { 
-      background-color: rgba(139, 92, 246, 0.12); 
-      color: #a78bfa;
-      border: 1px solid rgba(139, 92, 246, 0.2);
-    }
+    &.blue { background-color: rgba(59, 130, 246, 0.12); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.2); }
+    &.orange { background-color: rgba(245, 158, 11, 0.12); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.2); }
+    &.purple { background-color: rgba(139, 92, 246, 0.12); color: #a78bfa; border: 1px solid rgba(139, 92, 246, 0.2); }
+    &.green { background-color: rgba(16, 185, 129, 0.12); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2); }
   }
 
   .stat-info {
@@ -370,39 +374,20 @@ const StyledDashboard = styled.div`
     .stat-subtext {
       font-size: 0.78rem;
       color: var(--text-muted);
-
       b { color: var(--text-main); }
-
-      &.danger {
-        color: var(--danger-color);
-        font-weight: 700;
-      }
-      
-      &.success {
-        color: var(--success-color);
-        font-weight: 700;
-      }
+      &.danger { color: var(--danger-color); font-weight: 700; }
+      &.success { color: var(--success-color); font-weight: 700; }
     }
   }
 
-  .flex-align {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
+  .flex-align { display: flex; align-items: center; gap: 4px; }
 
   .dashboard-sections {
     display: grid;
     grid-template-columns: 2fr 1fr;
     gap: 24px;
-
-    &.full-width {
-      grid-template-columns: 1fr;
-    }
-
-    @media (max-width: 1024px) {
-      grid-template-columns: 1fr;
-    }
+    &.full-width { grid-template-columns: 1fr; }
+    @media (max-width: 1024px) { grid-template-columns: 1fr; }
   }
 
   .section-card {
@@ -418,85 +403,29 @@ const StyledDashboard = styled.div`
       align-items: center;
       margin-bottom: 20px;
 
-      h3 {
-        font-size: 1.15rem;
-        font-weight: 850;
-        margin: 0;
-        letter-spacing: -0.3px;
-        color: var(--text-main);
-      }
+      h3 { font-size: 1.15rem; font-weight: 850; margin: 0; color: var(--text-main); }
 
       .text-btn {
-        background: none;
-        border: none;
-        color: var(--accent-color);
-        font-weight: 700;
-        font-size: 0.85rem;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        transition: all 0.2s ease;
-
-        &:hover {
-          color: #a78bfa;
-          transform: translateX(3px);
-        }
+        background: none; border: none; color: var(--accent-color); font-weight: 700; font-size: 0.85rem; cursor: pointer;
+        display: flex; align-items: center; gap: 4px; transition: all 0.2s ease;
+        &:hover { color: #a78bfa; transform: translateX(3px); }
       }
     }
   }
 
-  .table-responsive {
-    overflow-x: auto;
-  }
+  .table-responsive { overflow-x: auto; }
 
   .recent-table {
     width: 100%;
     border-collapse: collapse;
     text-align: left;
 
-    th, td {
-      padding: 14px 16px;
-      font-size: 0.88rem;
-      border-bottom: 1px solid var(--border-color);
-    }
-
-    th {
-      font-weight: 800;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      font-size: 0.72rem;
-      letter-spacing: 0.8px;
-      background-color: rgba(255, 255, 255, 0.01);
-    }
-
-    tr:last-child td {
-      border-bottom: none;
-    }
-
-    tbody tr {
-      transition: background-color 0.2s ease;
-      &:hover {
-        background-color: var(--bg-hover);
-      }
-    }
+    th, td { padding: 14px 16px; font-size: 0.88rem; border-bottom: 1px solid var(--border-color); }
+    th { font-weight: 800; color: var(--text-muted); text-transform: uppercase; font-size: 0.72rem; letter-spacing: 0.8px; }
+    tbody tr { &:hover { background-color: var(--bg-hover); } }
   }
 
-  .cust-td {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-
-    .cust-name {
-      font-weight: 700;
-      color: var(--text-main);
-    }
-
-    .cust-business {
-      font-size: 0.72rem;
-      color: var(--text-muted);
-    }
-  }
+  .cust-name { font-weight: 700; color: var(--text-main); }
 
   .status-pill {
     padding: 4px 8px;
@@ -504,40 +433,18 @@ const StyledDashboard = styled.div`
     font-size: 0.72rem;
     font-weight: 850;
     text-transform: uppercase;
-    width: fit-content;
     display: inline-block;
 
-    &.confirmed {
-      background-color: rgba(16, 185, 129, 0.08);
-      border: 1px solid rgba(16, 185, 129, 0.25);
-      color: var(--success-color);
-    }
-
-    &.draft {
-      background-color: rgba(245, 158, 11, 0.08);
-      border: 1px solid rgba(245, 158, 11, 0.25);
-      color: var(--warning-color);
-    }
+    &.pending { background-color: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.25); color: #f59e0b; }
+    &.completed { background-color: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); color: var(--success-color); }
+    &.cancelled { background-color: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.25); color: var(--danger-color); }
   }
 
-  .empty-text {
-    text-align: center;
-    color: var(--text-muted);
-    padding: 32px !important;
-  }
+  .empty-text { text-align: center; color: var(--text-muted); padding: 32px !important; }
+  .font-mono { font-family: monospace; }
+  .font-bold { font-weight: 700; }
 
-  .actions-card {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .actions-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    flex: 1;
-    justify-content: center;
-  }
+  .actions-grid { display: flex; flex-direction: column; gap: 16px; justify-content: center; }
 
   .action-btn {
     display: flex;
@@ -552,52 +459,26 @@ const StyledDashboard = styled.div`
     text-align: left;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
-    svg {
-      color: var(--text-muted);
-      transition: all 0.3s ease;
-    }
+    svg { color: var(--text-muted); transition: all 0.3s ease; }
 
     &:hover {
       transform: translateY(-2px);
       box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
       color: white !important;
-
-      svg {
-        color: white !important;
-        transform: scale(1.1);
-      }
+      svg { color: white !important; transform: scale(1.1); }
     }
 
-    &.blue-grad:hover {
-      background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-      border-color: #3b82f6;
-    }
-
-    &.purple-grad:hover {
-      background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
-      border-color: #8b5cf6;
-    }
-
-    &.orange-grad:hover {
-      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-      border-color: #f59e0b;
-    }
+    &.blue-grad:hover { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); border-color: #3b82f6; }
+    &.purple-grad:hover { background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); border-color: #8b5cf6; }
+    &.orange-grad:hover { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); border-color: #f59e0b; }
   }
 
   .action-meta {
     display: flex;
     flex-direction: column;
     gap: 2px;
-
-    .action-title {
-      font-weight: 700;
-      font-size: 0.95rem;
-    }
-
-    .action-desc {
-      font-size: 0.75rem;
-      opacity: 0.85;
-    }
+    .action-title { font-weight: 700; font-size: 0.95rem; }
+    .action-desc { font-size: 0.75rem; opacity: 0.85; }
   }
 `;
 
