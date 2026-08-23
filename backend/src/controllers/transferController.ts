@@ -20,15 +20,20 @@ export const transferDispatchSchema = z.object({
 
 export const getTransfers = async (req: AuthRequest, res: Response) => {
   try {
-    const result = await pool.query(
-      `SELECT t.*, i.name as item_name, i.sku as item_sku, 
+    let queryText = `SELECT t.*, i.name as item_name, i.sku as item_sku, 
               sl.name as source_location_name, dl.name as destination_location_name 
        FROM transfers t 
        JOIN items i ON t.item_id = i.id 
        JOIN locations sl ON t.source_location_id = sl.id 
-       JOIN locations dl ON t.destination_location_id = dl.id 
-       ORDER BY t.id DESC`
-    );
+       JOIN locations dl ON t.destination_location_id = dl.id`;
+    const queryParams: any[] = [];
+    if (req.user?.role !== 'ADMIN' && req.user?.location_id) {
+      queryText += ` WHERE t.source_location_id = $1 OR t.destination_location_id = $1`;
+      queryParams.push(req.user.location_id);
+    }
+    queryText += ` ORDER BY t.id DESC`;
+
+    const result = await pool.query(queryText, queryParams);
     return res.json(result.rows);
   } catch (error) {
     console.error('GetTransfers error:', error);
@@ -65,6 +70,11 @@ export const createTransfer = async (req: AuthRequest, res: Response) => {
 
   if (source_location_id === destination_location_id) {
     return res.status(400).json({ error: 'Source and destination locations must be different' });
+  }
+
+  // Location restriction check
+  if (req.user?.role !== 'ADMIN' && req.user?.location_id && source_location_id !== req.user.location_id) {
+    return res.status(403).json({ error: 'Forbidden: You are restricted to transfers originating from your assigned location' });
   }
 
   try {
@@ -114,6 +124,12 @@ export const dispatchTransfer = async (req: AuthRequest, res: Response) => {
     }
 
     const transfer = transferRes.rows[0];
+
+    // Location restriction check
+    if (req.user?.role !== 'ADMIN' && req.user?.location_id && transfer.source_location_id !== req.user.location_id) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'Forbidden: You are restricted to operations at your assigned location' });
+    }
 
     if (transfer.status !== 'REQUESTED') {
       await client.query('ROLLBACK');
@@ -182,6 +198,7 @@ export const dispatchTransfer = async (req: AuthRequest, res: Response) => {
 
 export const receiveTransfer = async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
+  const { received_quantity } = req.body;
   const client = await pool.connect();
 
   try {
@@ -196,8 +213,14 @@ export const receiveTransfer = async (req: AuthRequest, res: Response) => {
 
     const transfer = transferRes.rows[0];
 
+    // Location restriction check
+    if (req.user?.role !== 'ADMIN' && req.user?.location_id && transfer.destination_location_id !== req.user.location_id) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'Forbidden: You are restricted to operations at your assigned location' });
+    }
+
     // Double receipt prevention check
-    if (transfer.status === 'RECEIVED') {
+    if (transfer.status === 'RECEIVED' || transfer.status === 'PARTIALLY_RECEIVED') {
       await client.query('ROLLBACK');
       return res.status(400).json({ error: 'This transfer has already been received' });
     }
@@ -213,6 +236,14 @@ export const receiveTransfer = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Transfer record is missing dispatch batch information' });
     }
 
+    // Default to full transfer quantity if received_quantity is not specified
+    const recQty = received_quantity !== undefined ? parseInt(received_quantity) : transfer.quantity;
+
+    if (isNaN(recQty) || recQty < 0 || recQty > transfer.quantity) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Invalid received quantity' });
+    }
+
     // 2. Lock destination inventory row
     const invRes = await client.query(
       `SELECT * FROM inventory 
@@ -225,7 +256,7 @@ export const receiveTransfer = async (req: AuthRequest, res: Response) => {
 
     if (invRes.rows.length > 0) {
       const inv = invRes.rows[0];
-      const newPhysical = inv.physical_quantity + transfer.quantity;
+      const newPhysical = inv.physical_quantity + recQty;
       await client.query(
         `UPDATE inventory SET physical_quantity = $1 WHERE id = $2`,
         [newPhysical, inv.id]
@@ -237,7 +268,7 @@ export const receiveTransfer = async (req: AuthRequest, res: Response) => {
         `INSERT INTO inventory (item_id, location_id, batch, physical_quantity, reserved_quantity) 
          VALUES ($1, $2, $3, $4, 0) 
          RETURNING *`,
-        [transfer.item_id, transfer.destination_location_id, batch, transfer.quantity]
+        [transfer.item_id, transfer.destination_location_id, batch, recQty]
       );
       destInventoryId = insertRes.rows[0].id;
     }
@@ -246,16 +277,17 @@ export const receiveTransfer = async (req: AuthRequest, res: Response) => {
     await client.query(
       `INSERT INTO inventory_transactions (inventory_id, transaction_type, quantity, created_by) 
        VALUES ($1, 'TRANSFER_RECEIVE', $2, $3)`,
-      [destInventoryId, transfer.quantity, req.user?.id || null]
+      [destInventoryId, recQty, req.user?.id || null]
     );
 
     // 4. Update transfer status
+    const finalStatus = recQty === transfer.quantity ? 'RECEIVED' : 'PARTIALLY_RECEIVED';
     const updatedTransferRes = await client.query(
       `UPDATE transfers 
-       SET status = 'RECEIVED' 
-       WHERE id = $1 
+       SET status = $1, received_quantity = $2 
+       WHERE id = $3 
        RETURNING *`,
-      [id]
+      [finalStatus, recQty, id]
     );
 
     await client.query('COMMIT');

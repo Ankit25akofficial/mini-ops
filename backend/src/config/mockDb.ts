@@ -48,11 +48,11 @@ class MockDatabase {
 
     // Users
     this.users.push(
-      { id: 1, username: 'admin', email: 'admin@erp.com', password: adminHash, role_id: 1, created_at: new Date() },
-      { id: 2, username: 'ops', email: 'ops@erp.com', password: opsHash, role_id: 2, created_at: new Date() },
-      { id: 3, username: 'sales', email: 'sales@erp.com', password: salesHash, role_id: 3, created_at: new Date() },
-      { id: 4, username: 'warehouse', email: 'warehouse@erp.com', password: warehouseHash, role_id: 2, created_at: new Date() },
-      { id: 5, username: 'accounts', email: 'accounts@erp.com', password: accountsHash, role_id: 3, created_at: new Date() }
+      { id: 1, username: 'admin', email: 'admin@erp.com', password: adminHash, role_id: 1, location_id: null, created_at: new Date() },
+      { id: 2, username: 'ops', email: 'ops@erp.com', password: opsHash, role_id: 2, location_id: 1, created_at: new Date() },
+      { id: 3, username: 'sales', email: 'sales@erp.com', password: salesHash, role_id: 3, location_id: 1, created_at: new Date() },
+      { id: 4, username: 'warehouse', email: 'warehouse@erp.com', password: warehouseHash, role_id: 2, location_id: 2, created_at: new Date() },
+      { id: 5, username: 'accounts', email: 'accounts@erp.com', password: accountsHash, role_id: 3, location_id: 1, created_at: new Date() }
     );
     this.userIdSeq = 6;
 
@@ -108,8 +108,8 @@ class MockDatabase {
 
     // 9. Transfers
     this.transfers.push(
-      { id: 1, source_location_id: 1, destination_location_id: 2, item_id: 1, quantity: 10, batch: 'BATCH-2026A', status: 'DISPATCHED', created_at: new Date() },
-      { id: 2, source_location_id: 1, destination_location_id: 2, item_id: 3, quantity: 5, batch: null, status: 'REQUESTED', created_at: new Date() }
+      { id: 1, source_location_id: 1, destination_location_id: 2, item_id: 1, quantity: 10, received_quantity: null, batch: 'BATCH-2026A', status: 'DISPATCHED', created_at: new Date() },
+      { id: 2, source_location_id: 1, destination_location_id: 2, item_id: 3, quantity: 5, received_quantity: null, batch: null, status: 'REQUESTED', created_at: new Date() }
     );
     this.transferIdSeq = 3;
 
@@ -469,7 +469,15 @@ class MockDatabase {
     }
 
     if (lowerQuery.startsWith('update transfers')) {
-      if (lowerQuery.includes("status = 'dispatched'")) {
+      if (lowerQuery.includes('received_quantity =')) {
+        const [status, received_quantity, id] = params;
+        const t = this.transfers.find(x => x.id == id);
+        if (t) {
+          t.status = status;
+          t.received_quantity = received_quantity ? parseInt(received_quantity) : null;
+          return { rows: [t] };
+        }
+      } else if (lowerQuery.includes("status = 'dispatched'")) {
         const [batch, id] = params;
         const t = this.transfers.find(x => x.id == id);
         if (t) {

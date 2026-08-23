@@ -19,12 +19,17 @@ export const orderCreateSchema = z.object({
 
 export const getOrders = async (req: AuthRequest, res: Response) => {
   try {
-    const result = await pool.query(
-      `SELECT co.*, u.username as sales_user 
-       FROM customer_orders co 
-       LEFT JOIN users u ON co.user_id = u.id 
-       ORDER BY co.id DESC`
-    );
+    let queryText = `SELECT DISTINCT co.*, u.username as sales_user 
+                     FROM customer_orders co 
+                     LEFT JOIN users u ON co.user_id = u.id`;
+    const queryParams: any[] = [];
+    if (req.user?.role !== 'ADMIN' && req.user?.location_id) {
+      queryText += ` JOIN order_items oi ON co.id = oi.order_id WHERE oi.location_id = $1`;
+      queryParams.push(req.user.location_id);
+    }
+    queryText += ` ORDER BY co.id DESC`;
+
+    const result = await pool.query(queryText, queryParams);
     return res.json(result.rows);
   } catch (error) {
     console.error('GetOrders error:', error);
@@ -56,6 +61,14 @@ export const getOrderById = async (req: AuthRequest, res: Response) => {
       [id]
     );
 
+    // Location restriction check
+    if (req.user?.role !== 'ADMIN' && req.user?.location_id) {
+      const hasRestrictedItem = itemsRes.rows.some(item => item.location_id !== req.user?.location_id);
+      if (hasRestrictedItem) {
+        return res.status(403).json({ error: 'Forbidden: You are restricted to operations at your assigned location' });
+      }
+    }
+
     return res.json({
       ...orderRes.rows[0],
       items: itemsRes.rows,
@@ -68,8 +81,17 @@ export const getOrderById = async (req: AuthRequest, res: Response) => {
 
 export const createOrder = async (req: AuthRequest, res: Response) => {
   const { customer_name, items } = req.body;
-  const client = await pool.connect();
 
+  // Location restriction check
+  if (req.user?.role !== 'ADMIN' && req.user?.location_id) {
+    for (const line of items) {
+      if (line.location_id !== req.user.location_id) {
+        return res.status(403).json({ error: 'Forbidden: You can only reserve stock at your assigned location' });
+      }
+    }
+  }
+
+  const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
@@ -183,6 +205,15 @@ export const cancelOrder = async (req: AuthRequest, res: Response) => {
     // 2. Retrieve order items
     const itemsRes = await client.query('SELECT * FROM order_items WHERE order_id = $1', [id]);
 
+    // Location restriction check
+    if (req.user?.role !== 'ADMIN' && req.user?.location_id) {
+      const hasRestrictedItem = itemsRes.rows.some(item => item.location_id !== req.user?.location_id);
+      if (hasRestrictedItem) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({ error: 'Forbidden: You are restricted to operations at your assigned location' });
+      }
+    }
+
     // 3. Release reservations
     for (const item of itemsRes.rows) {
       // Lock the inventory row
@@ -254,6 +285,15 @@ export const completeOrder = async (req: AuthRequest, res: Response) => {
 
     // 2. Retrieve order items
     const itemsRes = await client.query('SELECT * FROM order_items WHERE order_id = $1', [id]);
+
+    // Location restriction check
+    if (req.user?.role !== 'ADMIN' && req.user?.location_id) {
+      const hasRestrictedItem = itemsRes.rows.some(item => item.location_id !== req.user?.location_id);
+      if (hasRestrictedItem) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({ error: 'Forbidden: You are restricted to operations at your assigned location' });
+      }
+    }
 
     // 3. Deduct stock physically and clear reservations
     for (const item of itemsRes.rows) {

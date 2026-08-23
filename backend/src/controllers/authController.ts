@@ -58,7 +58,7 @@ export const login = async (req: AuthRequest, res: Response) => {
     }
 
     const token = jwt.sign(
-      { id: user.id, username: user.username, role: user.role },
+      { id: user.id, username: user.username, role: user.role, location_id: user.location_id },
       JWT_SECRET,
       { expiresIn: JWT_EXPIRES_IN as any }
     );
@@ -70,6 +70,7 @@ export const login = async (req: AuthRequest, res: Response) => {
         username: user.username,
         email: user.email,
         role: user.role,
+        location_id: user.location_id,
       },
     });
   } catch (error) {
@@ -124,7 +125,7 @@ export const getMe = async (req: AuthRequest, res: Response) => {
 
   try {
     const userRes = await pool.query(
-      `SELECT u.id, u.username, u.email, r.name as role 
+      `SELECT u.id, u.username, u.email, u.location_id, r.name as role 
        FROM users u 
        JOIN roles r ON u.role_id = r.id 
        WHERE u.id = $1`,

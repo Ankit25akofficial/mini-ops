@@ -111,31 +111,31 @@ describe('Mini Operations ERP Integration Tests', () => {
     // Verify destination stock has NOT increased yet (should still be 20)
     const invRes1 = await request(app)
       .get('/api/inventory')
-      .set('Authorization', `Bearer ${opsToken}`);
+      .set('Authorization', `Bearer ${adminToken}`);
     
     const destInvBefore = invRes1.body.find(
       (inv: any) => inv.item_id === 1 && inv.location_id === 2 && inv.batch === 'BATCH-2026A'
     );
     expect(destInvBefore.physical_quantity).toBe(20);
-
+ 
     // Receive the transfer
     const receiveRes = await request(app)
       .post(`/api/transfers/${transferId}/receive`)
-      .set('Authorization', `Bearer ${opsToken}`);
-
+      .set('Authorization', `Bearer ${adminToken}`);
+ 
     expect(receiveRes.status).toBe(200);
-
+ 
     // Verify destination stock HAS now increased (should be 30)
     const invRes2 = await request(app)
       .get('/api/inventory')
-      .set('Authorization', `Bearer ${opsToken}`);
+      .set('Authorization', `Bearer ${adminToken}`);
     
     const destInvAfter = invRes2.body.find(
       (inv: any) => inv.item_id === 1 && inv.location_id === 2 && inv.batch === 'BATCH-2026A'
     );
     expect(destInvAfter.physical_quantity).toBe(30);
   });
-
+ 
   // Test 4: Same transfer cannot be received twice
   it('4. Should prevent receiving the same transfer twice', async () => {
     // Request another transfer of 5 laptops
@@ -148,25 +148,25 @@ describe('Mini Operations ERP Integration Tests', () => {
         item_id: 1,
         quantity: 5,
       });
-
+ 
     const transferId = transferReq.body.id;
-
+ 
     // Dispatch
     await request(app)
       .post(`/api/transfers/${transferId}/dispatch`)
       .set('Authorization', `Bearer ${opsToken}`)
       .send({ batch: 'BATCH-2026A' });
-
+ 
     // Receive first time (Success)
     const receiveRes1 = await request(app)
       .post(`/api/transfers/${transferId}/receive`)
-      .set('Authorization', `Bearer ${opsToken}`);
+      .set('Authorization', `Bearer ${adminToken}`);
     expect(receiveRes1.status).toBe(200);
-
+ 
     // Receive second time (Fail)
     const receiveRes2 = await request(app)
       .post(`/api/transfers/${transferId}/receive`)
-      .set('Authorization', `Bearer ${opsToken}`);
+      .set('Authorization', `Bearer ${adminToken}`);
     
     expect(receiveRes2.status).toBe(400);
     expect(receiveRes2.body.error).toContain('already been received');

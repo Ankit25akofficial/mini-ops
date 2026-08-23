@@ -41,9 +41,12 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
 });
 
 // Start Express Server
-const server = app.listen(PORT, () => {
-  console.log(`Server is running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
-  console.log(`Health check: http://localhost:${PORT}/health`);
-});
+let server: any;
+if (process.env.NODE_ENV !== 'test') {
+  server = app.listen(PORT, () => {
+    console.log(`Server is running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+    console.log(`Health check: http://localhost:${PORT}/health`);
+  });
+}
 
 export default app;

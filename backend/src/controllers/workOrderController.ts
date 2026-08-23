@@ -61,14 +61,19 @@ async function getShortageAndRecommendation(itemId: number, locationId: number, 
 
 export const getWorkOrders = async (req: AuthRequest, res: Response) => {
   try {
-    const result = await pool.query(
-      `SELECT wo.*, i.name as item_name, i.sku as item_sku, l.name as location_name, u.username as assigned_user 
-       FROM work_orders wo 
-       JOIN items i ON wo.item_id = i.id 
-       JOIN locations l ON wo.location_id = l.id 
-       LEFT JOIN users u ON wo.assigned_user_id = u.id 
-       ORDER BY wo.id DESC`
-    );
+    let queryText = `SELECT wo.*, i.name as item_name, i.sku as item_sku, l.name as location_name, u.username as assigned_user 
+                     FROM work_orders wo 
+                     JOIN items i ON wo.item_id = i.id 
+                     JOIN locations l ON wo.location_id = l.id 
+                     LEFT JOIN users u ON wo.assigned_user_id = u.id`;
+    const queryParams: any[] = [];
+    if (req.user?.role !== 'ADMIN' && req.user?.location_id) {
+      queryText += ` WHERE wo.location_id = $1`;
+      queryParams.push(req.user.location_id);
+    }
+    queryText += ` ORDER BY wo.id DESC`;
+
+    const result = await pool.query(queryText, queryParams);
 
     // Enforce shortage and recommendation calculations dynamically
     const enrichedOrders = [];
@@ -123,6 +128,12 @@ export const getWorkOrderById = async (req: AuthRequest, res: Response) => {
 
 export const createWorkOrder = async (req: AuthRequest, res: Response) => {
   const { location_id, item_id, required_quantity, assigned_user_id } = req.body;
+
+  // Location restriction check
+  if (req.user?.role !== 'ADMIN' && req.user?.location_id && location_id !== req.user.location_id) {
+    return res.status(403).json({ error: 'Forbidden: You are restricted to scheduling work orders at your assigned location' });
+  }
+
   try {
     // Verify item and location exist
     const itemCheck = await pool.query('SELECT id FROM items WHERE id = $1', [item_id]);
@@ -178,6 +189,12 @@ export const updateWorkOrder = async (req: AuthRequest, res: Response) => {
     }
 
     const currentWO = woCheck.rows[0];
+
+    // Location restriction check
+    if (req.user?.role !== 'ADMIN' && req.user?.location_id && currentWO.location_id !== req.user.location_id) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'Forbidden: You are restricted to operations at your assigned location' });
+    }
 
     if (currentWO.status === 'COMPLETED') {
       await client.query('ROLLBACK');

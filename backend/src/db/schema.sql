@@ -26,6 +26,7 @@ CREATE TABLE users (
   email VARCHAR(100) UNIQUE NOT NULL,
   password VARCHAR(255) NOT NULL,
   role_id INT NOT NULL REFERENCES roles(id) ON DELETE RESTRICT,
+  location_id INT REFERENCES locations(id) ON DELETE SET NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -84,11 +85,13 @@ CREATE TABLE transfers (
   destination_location_id INT NOT NULL REFERENCES locations(id) ON DELETE RESTRICT,
   item_id INT NOT NULL REFERENCES items(id) ON DELETE RESTRICT,
   quantity INT NOT NULL CHECK (quantity > 0),
+  received_quantity INT CHECK (received_quantity >= 0),
   batch VARCHAR(50), -- set upon dispatch
-  status VARCHAR(20) NOT NULL CHECK (status IN ('REQUESTED', 'DISPATCHED', 'RECEIVED')) DEFAULT 'REQUESTED',
+  status VARCHAR(20) NOT NULL CHECK (status IN ('REQUESTED', 'DISPATCHED', 'RECEIVED', 'PARTIALLY_RECEIVED')) DEFAULT 'REQUESTED',
   created_by INT REFERENCES users(id) ON DELETE SET NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT chk_different_locations CHECK (source_location_id <> destination_location_id)
+  CONSTRAINT chk_different_locations CHECK (source_location_id <> destination_location_id),
+  CONSTRAINT chk_received_qty CHECK (received_quantity <= quantity)
 );
 
 -- 9. Customer Orders table (Sales only)
@@ -117,7 +120,7 @@ CREATE TABLE inventory_transactions (
   inventory_id INT NOT NULL REFERENCES inventory(id) ON DELETE CASCADE,
   transaction_type VARCHAR(30) NOT NULL CHECK (transaction_type IN (
     'ADJUSTMENT', 'WORK_ORDER', 'TRANSFER_DISPATCH', 'TRANSFER_RECEIVE', 
-    'ORDER_RESERVE', 'ORDER_RELEASE', 'ORDER_SHIPPED'
+    'ORDER_RESERVE', 'ORDER_RELEASE', 'ORDER_SHIPPED', 'DAMAGED'
   )),
   quantity INT NOT NULL, -- positive for IN/additions, negative for OUT/reductions
   created_by INT REFERENCES users(id) ON DELETE SET NULL,

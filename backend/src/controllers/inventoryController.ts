@@ -9,18 +9,24 @@ export const inventoryAdjustSchema = z.object({
     location_id: z.number().int('Location ID must be an integer'),
     batch: z.string().min(1, 'Batch is required'),
     quantity: z.number().int('Quantity must be an integer'), // can be positive or negative
+    transaction_type: z.enum(['ADJUSTMENT', 'DAMAGED']).optional(),
   }),
 });
 
 export const getInventory = async (req: AuthRequest, res: Response) => {
   try {
-    const result = await pool.query(
-      `SELECT inv.*, i.name as item_name, i.sku as item_sku, l.name as location_name 
-       FROM inventory inv 
-       JOIN items i ON inv.item_id = i.id 
-       JOIN locations l ON inv.location_id = l.id 
-       ORDER BY inv.id ASC`
-    );
+    let queryText = `SELECT inv.*, i.name as item_name, i.sku as item_sku, l.name as location_name 
+                     FROM inventory inv 
+                     JOIN items i ON inv.item_id = i.id 
+                     JOIN locations l ON inv.location_id = l.id`;
+    const queryParams: any[] = [];
+    if (req.user?.role !== 'ADMIN' && req.user?.location_id) {
+      queryText += ` WHERE inv.location_id = $1`;
+      queryParams.push(req.user.location_id);
+    }
+    queryText += ` ORDER BY inv.id ASC`;
+
+    const result = await pool.query(queryText, queryParams);
     return res.json(result.rows);
   } catch (error) {
     console.error('GetInventory error:', error);
@@ -29,8 +35,18 @@ export const getInventory = async (req: AuthRequest, res: Response) => {
 };
 
 export const adjustInventory = async (req: AuthRequest, res: Response) => {
-  const { item_id, location_id, batch, quantity } = req.body;
+  const { item_id, location_id, batch, quantity, transaction_type } = req.body;
+
+  // Location restriction check
+  if (req.user?.role !== 'ADMIN' && req.user?.location_id && location_id !== req.user.location_id) {
+    return res.status(403).json({ error: 'Forbidden: You are restricted to operations at your assigned location' });
+  }
+
   const client = await pool.connect();
+
+  const txType = transaction_type || 'ADJUSTMENT';
+  // If transaction type is DAMAGED, force a negative deduction to reduce stock count
+  const adjQty = txType === 'DAMAGED' ? -Math.abs(quantity) : quantity;
 
   try {
     await client.query('BEGIN');
@@ -49,7 +65,7 @@ export const adjustInventory = async (req: AuthRequest, res: Response) => {
 
     if (existingRes.rows.length > 0) {
       const inv = existingRes.rows[0];
-      newPhysical = inv.physical_quantity + quantity;
+      newPhysical = inv.physical_quantity + adjQty;
       newReserved = inv.reserved_quantity;
 
       if (newPhysical < 0) {
@@ -67,12 +83,12 @@ export const adjustInventory = async (req: AuthRequest, res: Response) => {
          SET physical_quantity = $1 
          WHERE id = $2 
          RETURNING *`,
-        [newPhysical, inv.id]
+         [newPhysical, inv.id]
       );
       inventoryId = inv.id;
     } else {
       // Create new inventory row
-      newPhysical = quantity;
+      newPhysical = adjQty;
       newReserved = 0;
 
       if (newPhysical < 0) {
@@ -92,8 +108,8 @@ export const adjustInventory = async (req: AuthRequest, res: Response) => {
     // Log the transaction in inventory_transactions
     await client.query(
       `INSERT INTO inventory_transactions (inventory_id, transaction_type, quantity, created_by) 
-       VALUES ($1, 'ADJUSTMENT', $2, $3)`,
-      [inventoryId, quantity, req.user?.id || null]
+       VALUES ($1, $2, $3, $4)`,
+      [inventoryId, txType, adjQty, req.user?.id || null]
     );
 
     await client.query('COMMIT');

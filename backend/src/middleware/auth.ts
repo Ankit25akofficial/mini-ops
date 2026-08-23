@@ -6,6 +6,7 @@ export interface AuthRequest extends Request {
     id: number;
     username: string;
     role: 'ADMIN' | 'OPERATIONS' | 'SALES';
+    location_id?: number | null;
   };
 }
 
