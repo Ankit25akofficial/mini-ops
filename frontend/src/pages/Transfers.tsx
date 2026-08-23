@@ -107,7 +107,7 @@ const Transfers = () => {
     setDispatchSubmitLoading(true);
 
     try {
-      await api.post(`/api/transfers/${dispatchTransferId}/dispatch`, { batch: dispatchBatch });
+      await api.post(`/transfers/${dispatchTransferId}/dispatch`, { batch: dispatchBatch });
       setDispatchModalOpen(false);
       fetchData();
     } catch (err: any) {
@@ -120,7 +120,7 @@ const Transfers = () => {
   const handleReceiveTransfer = async (id: number) => {
     if (!window.confirm('Confirm stock receipt? Destination stock will increase immediately.')) return;
     try {
-      await api.post(`/api/transfers/${id}/receive`);
+      await api.post(`/transfers/${id}/receive`);
       fetchData();
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to receive stock');
