@@ -22,6 +22,8 @@ async function seed() {
     const adminHash = await bcrypt.hash('admin123', 10);
     const opsHash = await bcrypt.hash('ops123', 10);
     const salesHash = await bcrypt.hash('sales123', 10);
+    const warehouseHash = await bcrypt.hash('warehouse123', 10);
+    const accountsHash = await bcrypt.hash('accounts123', 10);
 
     // 2. Seed Roles
     const roleRes = await pool.query(`
@@ -47,9 +49,11 @@ async function seed() {
       INSERT INTO users (username, email, password, role_id) VALUES
       ('admin', 'admin@erp.com', $1, $2),
       ('ops', 'ops@erp.com', $3, $4),
-      ('sales', 'sales@erp.com', $5, $6)
+      ('sales', 'sales@erp.com', $5, $6),
+      ('warehouse', 'warehouse@erp.com', $7, $8),
+      ('accounts', 'accounts@erp.com', $9, $10)
       RETURNING id, username
-    `, [adminHash, adminRoleId, opsHash, opsRoleId, salesHash, salesRoleId]);
+    `, [adminHash, adminRoleId, opsHash, opsRoleId, salesHash, salesRoleId, warehouseHash, opsRoleId, accountsHash, salesRoleId]);
     const users = userRes.rows;
     console.log(`Seeded ${users.length} users.`);
 

@@ -43,14 +43,18 @@ class MockDatabase {
     const adminHash = bcrypt.hashSync('admin123', 10);
     const opsHash = bcrypt.hashSync('ops123', 10);
     const salesHash = bcrypt.hashSync('sales123', 10);
+    const warehouseHash = bcrypt.hashSync('warehouse123', 10);
+    const accountsHash = bcrypt.hashSync('accounts123', 10);
 
     // Users
     this.users.push(
       { id: 1, username: 'admin', email: 'admin@erp.com', password: adminHash, role_id: 1, created_at: new Date() },
       { id: 2, username: 'ops', email: 'ops@erp.com', password: opsHash, role_id: 2, created_at: new Date() },
-      { id: 3, username: 'sales', email: 'sales@erp.com', password: salesHash, role_id: 3, created_at: new Date() }
+      { id: 3, username: 'sales', email: 'sales@erp.com', password: salesHash, role_id: 3, created_at: new Date() },
+      { id: 4, username: 'warehouse', email: 'warehouse@erp.com', password: warehouseHash, role_id: 2, created_at: new Date() },
+      { id: 5, username: 'accounts', email: 'accounts@erp.com', password: accountsHash, role_id: 3, created_at: new Date() }
     );
-    this.userIdSeq = 4;
+    this.userIdSeq = 6;
 
     // 3. Locations
     this.locations.push(
