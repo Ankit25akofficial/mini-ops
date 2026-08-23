@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { pool } from '../config/db';
 
-async function seed() {
+export async function seed() {
   console.log('Seeding database with ERP schema...');
   
   try {
