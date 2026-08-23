@@ -82,7 +82,7 @@ All passwords are set to the base username followed by `123`.
 3. Create a `.env` file in the `backend/` root directory:
    ```env
    PORT=5000
-   DATABASE_URL=postgresql://neondb_owner:npg_pJECl3Vd0vIf@ep-long-dream-ay7npj0n.c-5.us-east-2.aws.neon.tech/neondb?sslmode=require
+   DATABASE_URL=postgresql://your_db_user:your_db_password@localhost:5432/mini_ops_erp?sslmode=disable
    JWT_SECRET=supersecretjwtkeyforelerpcrmoperationsportal2026
    JWT_EXPIRES_IN=30d
    NODE_ENV=development
