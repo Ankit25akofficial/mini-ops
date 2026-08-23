@@ -1,102 +1,134 @@
--- Database Schema for ERP + CRM Portal
-
--- Enable UUID extension if needed
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+-- Database Schema for Mini Operations ERP System
 
 -- Drop tables if they exist (for clean migrations)
-DROP TABLE IF EXISTS sales_challan_items CASCADE;
-DROP TABLE IF EXISTS sales_challans CASCADE;
-DROP TABLE IF EXISTS stock_movements CASCADE;
-DROP TABLE IF EXISTS products CASCADE;
-DROP TABLE IF EXISTS customer_follow_ups CASCADE;
-DROP TABLE IF EXISTS customers CASCADE;
+DROP TABLE IF EXISTS inventory_transactions CASCADE;
+DROP TABLE IF EXISTS order_items CASCADE;
+DROP TABLE IF EXISTS customer_orders CASCADE;
+DROP TABLE IF EXISTS transfers CASCADE;
+DROP TABLE IF EXISTS work_orders CASCADE;
+DROP TABLE IF EXISTS inventory CASCADE;
+DROP TABLE IF EXISTS items CASCADE;
+DROP TABLE IF EXISTS categories CASCADE;
+DROP TABLE IF EXISTS locations CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
+DROP TABLE IF EXISTS roles CASCADE;
 
--- 1. Users table
+-- 1. Roles table
+CREATE TABLE roles (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(20) UNIQUE NOT NULL CHECK (name IN ('ADMIN', 'OPERATIONS', 'SALES'))
+);
+
+-- 2. Users table
 CREATE TABLE users (
   id SERIAL PRIMARY KEY,
   username VARCHAR(50) UNIQUE NOT NULL,
   email VARCHAR(100) UNIQUE NOT NULL,
   password VARCHAR(255) NOT NULL,
-  role VARCHAR(20) NOT NULL CHECK (role IN ('Admin', 'Sales', 'Warehouse', 'Accounts')),
+  role_id INT NOT NULL REFERENCES roles(id) ON DELETE RESTRICT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 2. Customers table
-CREATE TABLE customers (
+-- 3. Locations table
+CREATE TABLE locations (
   id SERIAL PRIMARY KEY,
-  name VARCHAR(100) NOT NULL,
-  mobile VARCHAR(20) NOT NULL,
-  email VARCHAR(100) NOT NULL,
-  business_name VARCHAR(100) NOT NULL,
-  gst VARCHAR(15),
-  type VARCHAR(20) NOT NULL CHECK (type IN ('Retail', 'Wholesale', 'Distributor')),
-  address TEXT NOT NULL,
-  status VARCHAR(20) NOT NULL CHECK (status IN ('Lead', 'Active', 'Inactive')),
-  follow_up_date DATE,
-  notes TEXT,
+  name VARCHAR(100) UNIQUE NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 3. Customer Follow-up Notes table
-CREATE TABLE customer_follow_ups (
+-- 4. Categories table
+CREATE TABLE categories (
   id SERIAL PRIMARY KEY,
-  customer_id INT NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
-  note TEXT NOT NULL,
-  created_by INT REFERENCES users(id) ON DELETE SET NULL,
+  name VARCHAR(100) UNIQUE NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 4. Products table
-CREATE TABLE products (
+-- 5. Items table
+CREATE TABLE items (
   id SERIAL PRIMARY KEY,
   name VARCHAR(100) NOT NULL,
   sku VARCHAR(50) UNIQUE NOT NULL,
-  category VARCHAR(50) NOT NULL,
-  unit_price DECIMAL(10, 2) NOT NULL CHECK (unit_price >= 0),
-  current_stock INT NOT NULL DEFAULT 0 CHECK (current_stock >= 0),
-  min_stock_alert INT NOT NULL DEFAULT 5 CHECK (min_stock_alert >= 0),
-  location VARCHAR(50) NOT NULL,
+  category_id INT NOT NULL REFERENCES categories(id) ON DELETE RESTRICT,
+  price DECIMAL(10, 2) NOT NULL CHECK (price >= 0),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 5. Stock Movements table
-CREATE TABLE stock_movements (
+-- 6. Inventory table (Physical & Reserved stock levels per batch)
+CREATE TABLE inventory (
   id SERIAL PRIMARY KEY,
-  product_id INT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-  type VARCHAR(10) NOT NULL CHECK (type IN ('IN', 'OUT')),
-  quantity INT NOT NULL CHECK (quantity > 0),
-  reason VARCHAR(255) NOT NULL,
+  item_id INT NOT NULL REFERENCES items(id) ON DELETE RESTRICT,
+  location_id INT NOT NULL REFERENCES locations(id) ON DELETE RESTRICT,
+  batch VARCHAR(50) NOT NULL,
+  physical_quantity INT NOT NULL DEFAULT 0 CHECK (physical_quantity >= 0),
+  reserved_quantity INT NOT NULL DEFAULT 0 CHECK (reserved_quantity >= 0),
+  CONSTRAINT chk_reserved_limit CHECK (physical_quantity >= reserved_quantity),
+  UNIQUE(item_id, location_id, batch)
+);
+
+-- 7. Work Orders table (Admin only)
+CREATE TABLE work_orders (
+  id SERIAL PRIMARY KEY,
+  location_id INT NOT NULL REFERENCES locations(id) ON DELETE RESTRICT,
+  item_id INT NOT NULL REFERENCES items(id) ON DELETE RESTRICT,
+  required_quantity INT NOT NULL CHECK (required_quantity > 0),
+  assigned_user_id INT REFERENCES users(id) ON DELETE SET NULL,
+  status VARCHAR(20) NOT NULL CHECK (status IN ('ASSIGNED', 'IN_PROGRESS', 'COMPLETED')) DEFAULT 'ASSIGNED',
   created_by INT REFERENCES users(id) ON DELETE SET NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 6. Sales Challans table
-CREATE TABLE sales_challans (
+-- 8. Internal Transfers table
+CREATE TABLE transfers (
   id SERIAL PRIMARY KEY,
-  challan_number VARCHAR(50) UNIQUE NOT NULL,
-  customer_id INT NOT NULL REFERENCES customers(id) ON DELETE RESTRICT,
-  status VARCHAR(20) NOT NULL CHECK (status IN ('Draft', 'Confirmed')),
-  total_amount DECIMAL(10, 2) NOT NULL DEFAULT 0.00 CHECK (total_amount >= 0),
+  source_location_id INT NOT NULL REFERENCES locations(id) ON DELETE RESTRICT,
+  destination_location_id INT NOT NULL REFERENCES locations(id) ON DELETE RESTRICT,
+  item_id INT NOT NULL REFERENCES items(id) ON DELETE RESTRICT,
+  quantity INT NOT NULL CHECK (quantity > 0),
+  batch VARCHAR(50), -- set upon dispatch
+  status VARCHAR(20) NOT NULL CHECK (status IN ('REQUESTED', 'DISPATCHED', 'RECEIVED')) DEFAULT 'REQUESTED',
   created_by INT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT chk_different_locations CHECK (source_location_id <> destination_location_id)
+);
+
+-- 9. Customer Orders table (Sales only)
+CREATE TABLE customer_orders (
+  id SERIAL PRIMARY KEY,
+  customer_name VARCHAR(100) NOT NULL,
+  user_id INT REFERENCES users(id) ON DELETE SET NULL, -- Sales user who created it
+  status VARCHAR(20) NOT NULL CHECK (status IN ('PENDING', 'COMPLETED', 'CANCELLED')) DEFAULT 'PENDING',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 7. Sales Challan Items table
-CREATE TABLE sales_challan_items (
+-- 10. Order Items table
+CREATE TABLE order_items (
   id SERIAL PRIMARY KEY,
-  challan_id INT NOT NULL REFERENCES sales_challans(id) ON DELETE CASCADE,
-  product_id INT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
+  order_id INT NOT NULL REFERENCES customer_orders(id) ON DELETE CASCADE,
+  item_id INT NOT NULL REFERENCES items(id) ON DELETE RESTRICT,
+  location_id INT NOT NULL REFERENCES locations(id) ON DELETE RESTRICT,
+  batch VARCHAR(50) NOT NULL,
   quantity INT NOT NULL CHECK (quantity > 0),
-  unit_price DECIMAL(10, 2) NOT NULL CHECK (unit_price >= 0) -- Snapshot price at time of order
+  price DECIMAL(10, 2) NOT NULL CHECK (price >= 0) -- snapshotted unit price
+);
+
+-- 11. Inventory Transactions table (Movement / Reservation Ledger)
+CREATE TABLE inventory_transactions (
+  id SERIAL PRIMARY KEY,
+  inventory_id INT NOT NULL REFERENCES inventory(id) ON DELETE CASCADE,
+  transaction_type VARCHAR(30) NOT NULL CHECK (transaction_type IN (
+    'ADJUSTMENT', 'WORK_ORDER', 'TRANSFER_DISPATCH', 'TRANSFER_RECEIVE', 
+    'ORDER_RESERVE', 'ORDER_RELEASE', 'ORDER_SHIPPED'
+  )),
+  quantity INT NOT NULL, -- positive for IN/additions, negative for OUT/reductions
+  created_by INT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create Indexes for performance
-CREATE INDEX idx_users_username ON users(username);
-CREATE INDEX idx_customers_name ON customers(name);
-CREATE INDEX idx_customers_status ON customers(status);
-CREATE INDEX idx_products_sku ON products(sku);
-CREATE INDEX idx_products_current_stock ON products(current_stock);
-CREATE INDEX idx_sales_challans_number ON sales_challans(challan_number);
-CREATE INDEX idx_sales_challans_status ON sales_challans(status);
-CREATE INDEX idx_sales_challan_items_challan ON sales_challan_items(challan_id);
+CREATE INDEX idx_users_role_id ON users(role_id);
+CREATE INDEX idx_inventory_item_loc ON inventory(item_id, location_id);
+CREATE INDEX idx_work_orders_status ON work_orders(status);
+CREATE INDEX idx_transfers_status ON transfers(status);
+CREATE INDEX idx_customer_orders_status ON customer_orders(status);
+CREATE INDEX idx_order_items_order_id ON order_items(order_id);
+CREATE INDEX idx_inv_transactions_inv_id ON inventory_transactions(inventory_id);

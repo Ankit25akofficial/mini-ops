@@ -1,486 +1,564 @@
 import bcrypt from 'bcryptjs';
 
-// In-Memory Database State
+// In-Memory Database State for ERP System
 class MockDatabase {
+  roles: any[] = [];
   users: any[] = [];
-  customers: any[] = [];
-  customer_follow_ups: any[] = [];
-  products: any[] = [];
-  stock_movements: any[] = [];
-  sales_challans: any[] = [];
-  sales_challan_items: any[] = [];
+  locations: any[] = [];
+  categories: any[] = [];
+  items: any[] = [];
+  inventory: any[] = [];
+  work_orders: any[] = [];
+  transfers: any[] = [];
+  customer_orders: any[] = [];
+  order_items: any[] = [];
+  inventory_transactions: any[] = [];
 
+  private roleIdSeq = 1;
   private userIdSeq = 1;
-  private custIdSeq = 1;
-  private followUpIdSeq = 1;
-  private prodIdSeq = 1;
-  private movementIdSeq = 1;
-  private challanIdSeq = 1;
+  private locationIdSeq = 1;
+  private categoryIdSeq = 1;
   private itemIdSeq = 1;
+  private inventoryIdSeq = 1;
+  private workOrderIdSeq = 1;
+  private transferIdSeq = 1;
+  private customerOrderIdSeq = 1;
+  private orderItemIdSeq = 1;
+  private inventoryTransactionIdSeq = 1;
 
   constructor() {
     this.seedInitial();
   }
 
-  async seedInitial() {
-    // Admin, Sales, Warehouse, Accounts users
-    const adminHash = await bcrypt.hash('admin123', 10);
-    const salesHash = await bcrypt.hash('sales123', 10);
-    const warehouseHash = await bcrypt.hash('warehouse123', 10);
-    const accountsHash = await bcrypt.hash('accounts123', 10);
+  seedInitial() {
+    // 1. Roles
+    this.roles.push(
+      { id: 1, name: 'ADMIN' },
+      { id: 2, name: 'OPERATIONS' },
+      { id: 3, name: 'SALES' }
+    );
+    this.roleIdSeq = 4;
 
+    // 2. Hash passwords
+    const adminHash = bcrypt.hashSync('admin123', 10);
+    const opsHash = bcrypt.hashSync('ops123', 10);
+    const salesHash = bcrypt.hashSync('sales123', 10);
+
+    // Users
     this.users.push(
-      { id: this.userIdSeq++, username: 'admin', email: 'admin@erp.com', password: adminHash, role: 'Admin', created_at: new Date() },
-      { id: this.userIdSeq++, username: 'sales', email: 'sales@erp.com', password: salesHash, role: 'Sales', created_at: new Date() },
-      { id: this.userIdSeq++, username: 'warehouse', email: 'warehouse@erp.com', password: warehouseHash, role: 'Warehouse', created_at: new Date() },
-      { id: this.userIdSeq++, username: 'accounts', email: 'accounts@erp.com', password: accountsHash, role: 'Accounts', created_at: new Date() }
+      { id: 1, username: 'admin', email: 'admin@erp.com', password: adminHash, role_id: 1, created_at: new Date() },
+      { id: 2, username: 'ops', email: 'ops@erp.com', password: opsHash, role_id: 2, created_at: new Date() },
+      { id: 3, username: 'sales', email: 'sales@erp.com', password: salesHash, role_id: 3, created_at: new Date() }
     );
+    this.userIdSeq = 4;
 
-    // Seed Customers
-    this.customers.push(
-      { id: this.custIdSeq++, name: 'Aman Sharma', mobile: '9876543210', email: 'aman@sharmaretails.com', business_name: 'Sharma Retailers', gst: '07AAAAA1111A1Z1', type: 'Retail', address: '123 Market Street, Delhi', status: 'Active', follow_up_date: '2026-08-15', notes: 'Regular retail buyer of groceries.', created_at: new Date() },
-      { id: this.custIdSeq++, name: 'Global Wholesale Corp', mobile: '9999888877', email: 'contact@globalwholesale.com', business_name: 'Global Wholesale', gst: '08BBBBB2222B2Z2', type: 'Wholesale', address: '456 Industrial Area, Gurugram', status: 'Active', follow_up_date: '2026-08-20', notes: 'Prefers bulk purchases on credit.', created_at: new Date() },
-      { id: this.custIdSeq++, name: 'Apex Distributors', mobile: '8888777766', email: 'sales@apexdistributors.com', business_name: 'Apex Distributors Ltd', gst: null, type: 'Distributor', address: '789 Warehouse Lane, Noida', status: 'Lead', follow_up_date: '2026-08-10', notes: 'Looking to onboard for northern region logistics.', created_at: new Date() },
-      { id: this.custIdSeq++, name: 'Rahul Verma', mobile: '7777666655', email: 'rahul@verma.com', business_name: 'Verma & Sons', gst: '09CCCCC3333C3Z3', type: 'Retail', address: '101 Sector 15, Faridabad', status: 'Inactive', follow_up_date: null, notes: 'On hold due to payment delays.', created_at: new Date() }
+    // 3. Locations
+    this.locations.push(
+      { id: 1, name: 'Main Warehouse', created_at: new Date() },
+      { id: 2, name: 'Secondary Depot', created_at: new Date() },
+      { id: 3, name: 'Retail Outlet', created_at: new Date() }
     );
+    this.locationIdSeq = 4;
 
-    // Seed Follow ups
-    this.customer_follow_ups.push(
-      { id: this.followUpIdSeq++, customer_id: 1, note: 'Called customer regarding new grocery pricing list. They requested a quote.', created_by: 2, created_at: new Date() },
-      { id: this.followUpIdSeq++, customer_id: 1, note: 'Sent custom catalog. Follow-up scheduled for next week.', created_by: 2, created_at: new Date() }
+    // 4. Categories
+    this.categories.push(
+      { id: 1, name: 'Electronics', created_at: new Date() },
+      { id: 2, name: 'Office Supplies', created_at: new Date() },
+      { id: 3, name: 'Apparel', created_at: new Date() }
     );
+    this.categoryIdSeq = 4;
 
-    // Seed Products
-    this.products.push(
-      { id: this.prodIdSeq++, name: 'Premium Basmati Rice 5kg', sku: 'RICE-BAS-005', category: 'Groceries', unit_price: 450.00, current_stock: 140, min_stock_alert: 10, location: 'Aisle A-3', created_at: new Date() },
-      { id: this.prodIdSeq++, name: 'Organic Mustard Oil 1L', sku: 'OIL-MUS-001', category: 'Edible Oils', unit_price: 180.00, current_stock: 75, min_stock_alert: 15, location: 'Aisle B-1', created_at: new Date() },
-      { id: this.prodIdSeq++, name: 'Refined Sugar 10kg', sku: 'SUG-REF-010', category: 'Groceries', unit_price: 420.00, current_stock: 20, min_stock_alert: 25, location: 'Aisle A-5', created_at: new Date() },
-      { id: this.prodIdSeq++, name: 'Whole Wheat Atta 10kg', sku: 'ATT-WHO-010', category: 'Groceries', unit_price: 380.00, current_stock: 300, min_stock_alert: 30, location: 'Aisle A-1', created_at: new Date() },
-      { id: this.prodIdSeq++, name: 'Tata Salt 1kg', sku: 'SLT-TAT-001', category: 'Groceries', unit_price: 28.00, current_stock: 500, min_stock_alert: 50, location: 'Aisle C-2', created_at: new Date() }
+    // 5. Items
+    this.items.push(
+      { id: 1, name: 'Enterprise Laptop L1', sku: 'LAPTOP-E1', category_id: 1, price: 1200.00, created_at: new Date() },
+      { id: 2, name: 'Wireless Keyboard & Mouse Combo', sku: 'KBDMOUSE-01', category_id: 1, price: 45.00, created_at: new Date() },
+      { id: 3, name: 'Ergonomic Office Chair', sku: 'CHAIR-ERG-01', category_id: 2, price: 180.00, created_at: new Date() },
+      { id: 4, name: 'A4 Paper Box (5 Reams)', sku: 'PAPER-A4-BOX', category_id: 2, price: 25.00, created_at: new Date() }
     );
+    this.itemIdSeq = 5;
 
-    // Seed Stock Movements
-    for (let i = 1; i <= 5; i++) {
-      this.stock_movements.push({
-        id: this.movementIdSeq++,
-        product_id: i,
-        type: 'IN',
-        quantity: 500,
-        reason: 'Initial inventory loading',
-        created_by: 3,
-        created_at: new Date()
-      });
-    }
-
-    // Seed Challans
-    this.sales_challans.push(
-      { id: this.challanIdSeq++, challan_number: 'CH-20260808-0001', customer_id: 1, status: 'Confirmed', total_amount: 5400.00, created_by: 2, created_at: new Date() },
-      { id: this.challanIdSeq++, challan_number: 'CH-20260808-0002', customer_id: 2, status: 'Draft', total_amount: 21000.00, created_by: 2, created_at: new Date() }
+    // 6. Inventory
+    this.inventory.push(
+      { id: 1, item_id: 1, location_id: 1, batch: 'BATCH-2026A', physical_quantity: 100, reserved_quantity: 0 },
+      { id: 2, item_id: 1, location_id: 2, batch: 'BATCH-2026A', physical_quantity: 20, reserved_quantity: 0 },
+      { id: 3, item_id: 2, location_id: 1, batch: 'BATCH-2026B', physical_quantity: 500, reserved_quantity: 0 },
+      { id: 4, item_id: 3, location_id: 1, batch: 'BATCH-2026C', physical_quantity: 50, reserved_quantity: 0 }
     );
+    this.inventoryIdSeq = 5;
 
-    this.sales_challan_items.push(
-      { id: this.itemIdSeq++, challan_id: 1, product_id: 1, quantity: 10, unit_price: 450.00 },
-      { id: this.itemIdSeq++, challan_id: 1, product_id: 2, quantity: 5, unit_price: 180.00 },
-      { id: this.itemIdSeq++, challan_id: 2, product_id: 3, quantity: 50, unit_price: 420.00 }
+    // 7. Inventory Transactions
+    this.inventory_transactions.push(
+      { id: 1, inventory_id: 1, transaction_type: 'ADJUSTMENT', quantity: 100, created_by: 2, created_at: new Date() },
+      { id: 2, inventory_id: 2, transaction_type: 'ADJUSTMENT', quantity: 20, created_by: 2, created_at: new Date() },
+      { id: 3, inventory_id: 3, transaction_type: 'ADJUSTMENT', quantity: 500, created_by: 2, created_at: new Date() },
+      { id: 4, inventory_id: 4, transaction_type: 'ADJUSTMENT', quantity: 50, created_by: 2, created_at: new Date() }
     );
-
-    // Record Seed Stock Movements Out for Confirmed Challan 1
-    this.stock_movements.push(
-      { id: this.movementIdSeq++, product_id: 1, type: 'OUT', quantity: 10, reason: 'Sales Challan CH-20260808-0001 confirmed', created_by: 3, created_at: new Date() },
-      { id: this.movementIdSeq++, product_id: 2, type: 'OUT', quantity: 5, reason: 'Sales Challan CH-20260808-0001 confirmed', created_by: 3, created_at: new Date() }
-    );
+    this.inventoryTransactionIdSeq = 5;
   }
 
   async executeQuery(sql: string, params: any[] = []): Promise<{ rows: any[]; count?: number }> {
     const query = sql.trim().replace(/\s+/g, ' ');
     const lowerQuery = query.toLowerCase();
 
-    // 1. BEGIN / COMMIT / ROLLBACK transactions (noop)
+    // 1. Transactions (noop in mock database except logging)
     if (lowerQuery === 'begin' || lowerQuery === 'commit' || lowerQuery === 'rollback') {
       return { rows: [] };
     }
 
-    // 2. DELETE queries (for seeding cleanup)
+    // 2. DELETE operations (for cleaning tests)
     if (lowerQuery.startsWith('delete from')) {
-      const table = query.split(' ')[2].toLowerCase();
+      const table = query.split(' ')[2].toLowerCase().replace(';', '');
       if (table === 'users') this.users = [];
-      if (table === 'customers') this.customers = [];
-      if (table === 'products') this.products = [];
-      if (table === 'customer_follow_ups') this.customer_follow_ups = [];
-      if (table === 'sales_challans') this.sales_challans = [];
-      if (table === 'sales_challan_items') this.sales_challan_items = [];
-      if (table === 'stock_movements') this.stock_movements = [];
+      if (table === 'roles') this.roles = [];
+      if (table === 'locations') this.locations = [];
+      if (table === 'categories') this.categories = [];
+      if (table === 'items') this.items = [];
+      if (table === 'inventory') this.inventory = [];
+      if (table === 'work_orders') this.work_orders = [];
+      if (table === 'transfers') this.transfers = [];
+      if (table === 'customer_orders') this.customer_orders = [];
+      if (table === 'order_items') this.order_items = [];
+      if (table === 'inventory_transactions') this.inventory_transactions = [];
       return { rows: [] };
     }
 
-    // 3. User operations
+    // 3. ROLES queries
+    if (lowerQuery.includes('from roles')) {
+      if (lowerQuery.startsWith('insert into roles')) {
+        const [name] = params;
+        const newRole = { id: this.roleIdSeq++, name };
+        this.roles.push(newRole);
+        return { rows: [newRole] };
+      }
+      return { rows: this.roles };
+    }
+
+    // 4. USERS queries
     if (lowerQuery.includes('from users')) {
-      if (lowerQuery.includes('username = $1 or email = $1')) {
-        const usernameOrEmail = params[0];
-        const user = this.users.find(u => u.username === usernameOrEmail || u.email === usernameOrEmail);
+      // JOIN with roles
+      const userList = this.users.map(u => {
+        const role = this.roles.find(r => r.id === u.role_id);
+        return { ...u, role_name: role ? role.name : 'ADMIN', role: role ? role.name : 'ADMIN' };
+      });
+
+      if (lowerQuery.includes('username = $1') || lowerQuery.includes('u.username = $1')) {
+        const term = params[0];
+        const user = userList.find(u => u.username === term || u.email === term);
         return { rows: user ? [user] : [] };
       }
-      if (lowerQuery.includes('id = $1')) {
-        const user = this.users.find(u => u.id == params[0]);
+      if (lowerQuery.includes('u.id = $1') || lowerQuery.includes('id = $1')) {
+        const id = params[0];
+        const user = userList.find(u => u.id == id);
         return { rows: user ? [user] : [] };
       }
-      return { rows: this.users };
+      return { rows: userList };
     }
 
     if (lowerQuery.startsWith('insert into users')) {
-      // (username, email, password, role)
-      const [username, email, password, role] = params;
-      const newUser = { id: this.userIdSeq++, username, email, password, role, created_at: new Date() };
+      const [username, email, password, role_id] = params;
+      const newUser = { id: this.userIdSeq++, username, email, password, role_id: parseInt(role_id), created_at: new Date() };
       this.users.push(newUser);
-      return { rows: [newUser] };
+      const role = this.roles.find(r => r.id === newUser.role_id);
+      return { rows: [{ ...newUser, role_name: role ? role.name : 'ADMIN' }] };
     }
 
-    // 4. Customer operations
-    if (lowerQuery.includes('from customers')) {
-      if (lowerQuery.includes('count(*)')) {
-        let count = this.customers.length;
-        // Apply simple search filter if present
-        if (params.length > 0 && typeof params[0] === 'string' && params[0].startsWith('%')) {
-          const searchVal = params[0].replace(/%/g, '').toLowerCase();
-          count = this.customers.filter(c => 
-            c.name.toLowerCase().includes(searchVal) || 
-            c.email.toLowerCase().includes(searchVal) || 
-            c.business_name.toLowerCase().includes(searchVal)
-          ).length;
-        }
-        return { rows: [{ count: count.toString() }] };
-      }
+    // 5. LOCATIONS queries
+    if (lowerQuery.includes('from locations')) {
+      return { rows: this.locations };
+    }
+    if (lowerQuery.startsWith('insert into locations')) {
+      const [name] = params;
+      const newLoc = { id: this.locationIdSeq++, name, created_at: new Date() };
+      this.locations.push(newLoc);
+      return { rows: [newLoc] };
+    }
 
+    // 6. CATEGORIES queries
+    if (lowerQuery.includes('from categories')) {
+      return { rows: this.categories };
+    }
+    if (lowerQuery.startsWith('insert into categories')) {
+      const [name] = params;
+      const newCat = { id: this.categoryIdSeq++, name, created_at: new Date() };
+      this.categories.push(newCat);
+      return { rows: [newCat] };
+    }
+
+    // 7. ITEMS queries
+    if (lowerQuery.includes('from items')) {
+      const itemsList = this.items.map(i => {
+        const cat = this.categories.find(c => c.id === i.category_id);
+        return { ...i, category_name: cat ? cat.name : 'General' };
+      });
       if (lowerQuery.includes('id = $1')) {
-        const cust = this.customers.find(c => c.id == params[0]);
-        return { rows: cust ? [cust] : [] };
+        const item = itemsList.find(i => i.id == params[0]);
+        return { rows: item ? [item] : [] };
       }
-
-      // Search & Pagination
-      let filtered = [...this.customers];
-      let searchIdx = -1;
-      let typeIdx = -1;
-      let statusIdx = -1;
-
-      // Scan query string for param order
-      // Let's analyze simple query parameters
-      // Note: We can just use the provided params if matches
-      if (params.length > 0) {
-        // Safe check
-        params.forEach((param, index) => {
-          if (typeof param === 'string' && param.startsWith('%')) {
-            const searchVal = param.replace(/%/g, '').toLowerCase();
-            filtered = filtered.filter(c => 
-              c.name.toLowerCase().includes(searchVal) || 
-              c.email.toLowerCase().includes(searchVal) || 
-              c.business_name.toLowerCase().includes(searchVal)
-            );
-          } else if (['Retail', 'Wholesale', 'Distributor'].includes(param)) {
-            filtered = filtered.filter(c => c.type === param);
-          } else if (['Lead', 'Active', 'Inactive'].includes(param)) {
-            filtered = filtered.filter(c => c.status === param);
-          }
-        });
-      }
-
-      // Order by ID DESC
-      filtered.sort((a, b) => b.id - a.id);
-
-      // Pagination limit/offset (last two parameters)
-      // Usually params contains: [search, type, status, limit, offset]
-      const limit = params[params.length - 2];
-      const offset = params[params.length - 1];
-      if (typeof limit === 'number' && typeof offset === 'number') {
-        filtered = filtered.slice(offset, offset + limit);
-      }
-
-      return { rows: filtered };
-    }
-
-    if (lowerQuery.startsWith('insert into customers')) {
-      // (name, mobile, email, business_name, gst, type, address, status, follow_up_date, notes)
-      const [name, mobile, email, business_name, gst, type, address, status, follow_up_date, notes] = params;
-      const newCust = {
-        id: this.custIdSeq++,
-        name, mobile, email, business_name, gst, type, address, status,
-        follow_up_date, notes, created_at: new Date()
-      };
-      this.customers.push(newCust);
-      return { rows: [newCust] };
-    }
-
-    if (lowerQuery.startsWith('update customers')) {
-      // SET name = $1, mobile = $2, email = $3, business_name = $4, gst = $5, type = $6, address = $7, status = $8, follow_up_date = $9, notes = $10 WHERE id = $11
-      const [name, mobile, email, business_name, gst, type, address, status, follow_up_date, notes, id] = params;
-      const idx = this.customers.findIndex(c => c.id === parseInt(id));
-      if (idx !== -1) {
-        this.customers[idx] = {
-          ...this.customers[idx],
-          name, mobile, email, business_name, gst, type, address, status, follow_up_date, notes
-        };
-        return { rows: [this.customers[idx]] };
-      }
-      return { rows: [] };
-    }
-
-    if (lowerQuery.startsWith('delete from customers')) {
-      const id = params[0];
-      this.customers = this.customers.filter(c => c.id !== parseInt(id));
-      return { rows: [] };
-    }
-
-    // 5. Follow-ups
-    if (lowerQuery.includes('from customer_follow_ups')) {
-      const custId = params[0];
-      const items = this.customer_follow_ups
-        .filter(f => f.customer_id === parseInt(custId))
-        .map(f => {
-          const user = this.users.find(u => u.id === f.created_by);
-          return { ...f, creator_name: user ? user.username : 'System' };
-        });
-      items.sort((a, b) => b.id - a.id);
-      return { rows: items };
-    }
-
-    if (lowerQuery.startsWith('insert into customer_follow_ups')) {
-      const [customer_id, note, created_by] = params;
-      const newFollow = {
-        id: this.followUpIdSeq++,
-        customer_id: parseInt(customer_id),
-        note,
-        created_by: created_by ? parseInt(created_by) : null,
-        created_at: new Date()
-      };
-      this.customer_follow_ups.push(newFollow);
-      return { rows: [newFollow] };
-    }
-
-    // 6. Products & Inventory
-    if (lowerQuery.includes('from products')) {
       if (lowerQuery.includes('sku = $1')) {
-        const prod = this.products.find(p => p.sku === params[0]);
-        return { rows: prod ? [prod] : [] };
+        const item = itemsList.find(i => i.sku === params[0]);
+        return { rows: item ? [item] : [] };
       }
-      if (lowerQuery.includes('id = $1')) {
-        const prod = this.products.find(p => p.id == params[0]);
-        return { rows: prod ? [prod] : [] };
-      }
-      if (lowerQuery.includes('count(*)')) {
-        let count = this.products.length;
-        if (params.length > 0 && typeof params[0] === 'string' && params[0].startsWith('%')) {
-          const s = params[0].replace(/%/g, '').toLowerCase();
-          count = this.products.filter(p => p.name.toLowerCase().includes(s) || p.sku.toLowerCase().includes(s)).length;
-        }
-        return { rows: [{ count: count.toString() }] };
-      }
-
-      let filtered = [...this.products];
-      
-      // Stock alert filtering
-      if (lowerQuery.includes('current_stock <= min_stock_alert')) {
-        filtered = filtered.filter(p => p.current_stock <= p.min_stock_alert);
-      }
-
-      // Search term
-      if (params.length > 0 && typeof params[0] === 'string' && params[0].startsWith('%')) {
-        const searchVal = params[0].replace(/%/g, '').toLowerCase();
-        filtered = filtered.filter(p => p.name.toLowerCase().includes(searchVal) || p.sku.toLowerCase().includes(searchVal));
-      }
-
-      filtered.sort((a, b) => b.id - a.id);
-
-      // Pagination
-      const limit = params[params.length - 2];
-      const offset = params[params.length - 1];
-      if (typeof limit === 'number' && typeof offset === 'number') {
-        filtered = filtered.slice(offset, offset + limit);
-      }
-
-      return { rows: filtered };
+      return { rows: itemsList };
     }
-
-    if (lowerQuery.startsWith('insert into products')) {
-      // (name, sku, category, unit_price, current_stock, min_stock_alert, location)
-      const [name, sku, category, unit_price, current_stock, min_stock_alert, location] = params;
-      const newProd = {
-        id: this.prodIdSeq++,
-        name, sku, category,
-        unit_price: parseFloat(unit_price),
-        current_stock: parseInt(current_stock),
-        min_stock_alert: parseInt(min_stock_alert),
-        location,
+    if (lowerQuery.startsWith('insert into items')) {
+      const [name, sku, category_id, price] = params;
+      const newItem = {
+        id: this.itemIdSeq++,
+        name,
+        sku,
+        category_id: parseInt(category_id),
+        price: parseFloat(price),
         created_at: new Date()
       };
-      this.products.push(newProd);
-      return { rows: [newProd] };
+      this.items.push(newItem);
+      return { rows: [newItem] };
+    }
+    if (lowerQuery.startsWith('update items')) {
+      const [name, sku, category_id, price, id] = params;
+      const idx = this.items.findIndex(i => i.id == id);
+      if (idx !== -1) {
+        this.items[idx] = {
+          ...this.items[idx],
+          name,
+          sku,
+          category_id: parseInt(category_id),
+          price: parseFloat(price)
+        };
+        return { rows: [this.items[idx]] };
+      }
+      return { rows: [] };
+    }
+    if (lowerQuery.startsWith('delete from items')) {
+      const id = params[0];
+      this.items = this.items.filter(i => i.id != id);
+      return { rows: [] };
     }
 
-    if (lowerQuery.startsWith('update products')) {
-      if (lowerQuery.includes('current_stock = current_stock - $1') || lowerQuery.includes('current_stock = current_stock + $1') || lowerQuery.includes('current_stock = $1')) {
-        // Custom update stock queries:
-        // UPDATE products SET current_stock = current_stock - $1 WHERE id = $2
+    // 8. INVENTORY queries
+    if (lowerQuery.includes('from inventory')) {
+      const invList = this.inventory.map(inv => {
+        const item = this.items.find(i => i.id === inv.item_id);
+        const loc = this.locations.find(l => l.id === inv.location_id);
+        return {
+          ...inv,
+          item_name: item ? item.name : 'Unknown Item',
+          item_sku: item ? item.sku : 'SKU',
+          location_name: loc ? loc.name : 'Warehouse'
+        };
+      });
+
+      if (lowerQuery.includes('item_id = $1 and location_id = $2 and batch = $3')) {
+        const [item_id, location_id, batch] = params;
+        const inv = invList.find(i => i.item_id == item_id && i.location_id == location_id && i.batch === batch);
+        return { rows: inv ? [inv] : [] };
+      }
+      if (lowerQuery.includes('id = $1')) {
+        const inv = invList.find(i => i.id == params[0]);
+        return { rows: inv ? [inv] : [] };
+      }
+      return { rows: invList };
+    }
+
+    if (lowerQuery.startsWith('insert into inventory')) {
+      const [item_id, location_id, batch, physical_quantity, reserved_quantity] = params;
+      const newInv = {
+        id: this.inventoryIdSeq++,
+        item_id: parseInt(item_id),
+        location_id: parseInt(location_id),
+        batch,
+        physical_quantity: parseInt(physical_quantity || 0),
+        reserved_quantity: parseInt(reserved_quantity || 0)
+      };
+      this.inventory.push(newInv);
+      return { rows: [newInv] };
+    }
+
+    if (lowerQuery.startsWith('update inventory')) {
+      if (lowerQuery.includes('reserved_quantity = reserved_quantity + $1')) {
+        // UPDATE inventory SET reserved_quantity = reserved_quantity + $1 WHERE id = $2
         const [qty, id] = params;
-        const prod = this.products.find(p => p.id === parseInt(id));
-        if (prod) {
-          if (lowerQuery.includes('current_stock - $1')) {
-            prod.current_stock -= parseInt(qty);
-          } else if (lowerQuery.includes('current_stock + $1')) {
-            prod.current_stock += parseInt(qty);
-          } else {
-            prod.current_stock = parseInt(qty);
+        const inv = this.inventory.find(i => i.id == id);
+        if (inv) {
+          if (inv.physical_quantity < inv.reserved_quantity + parseInt(qty)) {
+            throw new Error('new row value violates check constraint "chk_reserved_limit"');
           }
-          return { rows: [prod] };
+          inv.reserved_quantity += parseInt(qty);
+          return { rows: [inv] };
+        }
+      } else if (lowerQuery.includes('reserved_quantity = reserved_quantity - $1')) {
+        // UPDATE inventory SET reserved_quantity = reserved_quantity - $1 WHERE id = $2
+        const [qty, id] = params;
+        const inv = this.inventory.find(i => i.id == id);
+        if (inv) {
+          inv.reserved_quantity -= parseInt(qty);
+          return { rows: [inv] };
+        }
+      } else if (lowerQuery.includes('physical_quantity = physical_quantity - $1')) {
+        // UPDATE inventory SET physical_quantity = physical_quantity - $1
+        const [qty, id] = params;
+        const inv = this.inventory.find(i => i.id == id);
+        if (inv) {
+          if (inv.physical_quantity - parseInt(qty) < inv.reserved_quantity) {
+            throw new Error('new row value violates check constraint "chk_reserved_limit"');
+          }
+          inv.physical_quantity -= parseInt(qty);
+          return { rows: [inv] };
+        }
+      } else if (lowerQuery.includes('physical_quantity = physical_quantity + $1')) {
+        // UPDATE inventory SET physical_quantity = physical_quantity + $1
+        const [qty, id] = params;
+        const inv = this.inventory.find(i => i.id == id);
+        if (inv) {
+          inv.physical_quantity += parseInt(qty);
+          return { rows: [inv] };
         }
       } else {
-        // Standard edit: name = $1, sku = $2, category = $3, unit_price = $4, min_stock_alert = $5, location = $6 WHERE id = $7
-        const [name, sku, category, unit_price, min_stock_alert, location, id] = params;
-        const prod = this.products.find(p => p.id === parseInt(id));
-        if (prod) {
-          prod.name = name;
-          prod.sku = sku;
-          prod.category = category;
-          prod.unit_price = parseFloat(unit_price);
-          prod.min_stock_alert = parseInt(min_stock_alert);
-          prod.location = location;
-          return { rows: [prod] };
+        if (params.length === 2) {
+          const [physical_quantity, id] = params;
+          const inv = this.inventory.find(i => i.id == id);
+          if (inv) {
+            const phys = parseInt(physical_quantity);
+            if (phys < inv.reserved_quantity) {
+              throw new Error('new row value violates check constraint "chk_reserved_limit"');
+            }
+            inv.physical_quantity = phys;
+            return { rows: [inv] };
+          }
+        } else {
+          // Full UPDATE: SET physical_quantity = $1, reserved_quantity = $2 WHERE id = $3
+          const [physical_quantity, reserved_quantity, id] = params;
+          const inv = this.inventory.find(i => i.id == id);
+          if (inv) {
+            const phys = parseInt(physical_quantity);
+            const res = parseInt(reserved_quantity);
+            if (phys < res) {
+              throw new Error('new row value violates check constraint "chk_reserved_limit"');
+            }
+            inv.physical_quantity = phys;
+            inv.reserved_quantity = res;
+            return { rows: [inv] };
+          }
         }
       }
       return { rows: [] };
     }
 
-    // 7. Stock Movements
-    if (lowerQuery.includes('from stock_movements')) {
-      const prodId = params[0];
-      const items = this.stock_movements
-        .filter(m => m.product_id === parseInt(prodId))
-        .map(m => {
-          const user = this.users.find(u => u.id === m.created_by);
-          return { ...m, creator_name: user ? user.username : 'System' };
-        });
-      items.sort((a, b) => b.id - a.id);
-      return { rows: items };
+    // 9. WORK ORDERS queries
+    if (lowerQuery.includes('from work_orders')) {
+      const woList = this.work_orders.map(wo => {
+        const item = this.items.find(i => i.id === wo.item_id);
+        const loc = this.locations.find(l => l.id === wo.location_id);
+        const user = this.users.find(u => u.id === wo.assigned_user_id);
+        return {
+          ...wo,
+          item_name: item ? item.name : 'Unknown Item',
+          item_sku: item ? item.sku : 'SKU',
+          location_name: loc ? loc.name : 'Warehouse',
+          assigned_user: user ? user.username : null
+        };
+      });
+
+      if (lowerQuery.includes('id = $1') || lowerQuery.includes('wo.id = $1')) {
+        const wo = woList.find(w => w.id == params[0]);
+        return { rows: wo ? [wo] : [] };
+      }
+      return { rows: woList };
     }
 
-    if (lowerQuery.startsWith('insert into stock_movements')) {
-      // (product_id, type, quantity, reason, created_by)
-      const [product_id, type, quantity, reason, created_by] = params;
-      const newMov = {
-        id: this.movementIdSeq++,
-        product_id: parseInt(product_id),
-        type,
-        quantity: parseInt(quantity),
-        reason,
+    if (lowerQuery.startsWith('insert into work_orders')) {
+      const [location_id, item_id, required_quantity, assigned_user_id, status, created_by] = params;
+      const newWO = {
+        id: this.workOrderIdSeq++,
+        location_id: parseInt(location_id),
+        item_id: parseInt(item_id),
+        required_quantity: parseInt(required_quantity),
+        assigned_user_id: assigned_user_id ? parseInt(assigned_user_id) : null,
+        status: status || 'ASSIGNED',
         created_by: created_by ? parseInt(created_by) : null,
         created_at: new Date()
       };
-      this.stock_movements.push(newMov);
-      return { rows: [newMov] };
+      this.work_orders.push(newWO);
+      return { rows: [newWO] };
     }
 
-    // 8. Sales Challan
-    if (lowerQuery.includes('from sales_challans')) {
-      if (lowerQuery.includes('id = $1')) {
-        const ch = this.sales_challans.find(c => c.id === parseInt(params[0]));
-        if (ch) {
-          const cust = this.customers.find(c => c.id === ch.customer_id);
-          const user = this.users.find(u => u.id === ch.created_by);
-          return {
-            rows: [{
-              ...ch,
-              customer_name: cust ? cust.name : 'Unknown Customer',
-              business_name: cust ? cust.business_name : 'Unknown Business',
-              creator_name: user ? user.username : 'System'
-            }]
-          };
-        }
-        return { rows: [] };
+    if (lowerQuery.startsWith('update work_orders')) {
+      const [status, assigned_user_id, id] = params;
+      const wo = this.work_orders.find(w => w.id == id);
+      if (wo) {
+        wo.status = status;
+        wo.assigned_user_id = assigned_user_id ? parseInt(assigned_user_id) : null;
+        return { rows: [wo] };
       }
+      return { rows: [] };
+    }
 
-      if (lowerQuery.includes('challan_number = $1')) {
-        const ch = this.sales_challans.find(c => c.challan_number === params[0]);
-        return { rows: ch ? [ch] : [] };
-      }
-
-      // List challans
-      const items = this.sales_challans.map(ch => {
-        const cust = this.customers.find(c => c.id === ch.customer_id);
-        const user = this.users.find(u => u.id === ch.created_by);
+    // 10. TRANSFERS queries
+    if (lowerQuery.includes('from transfers')) {
+      const tList = this.transfers.map(t => {
+        const item = this.items.find(i => i.id === t.item_id);
+        const sl = this.locations.find(l => l.id === t.source_location_id);
+        const dl = this.locations.find(l => l.id === t.destination_location_id);
         return {
-          ...ch,
-          customer_name: cust ? cust.name : 'Unknown Customer',
-          business_name: cust ? cust.business_name : 'Unknown Business',
+          ...t,
+          item_name: item ? item.name : 'Unknown Item',
+          item_sku: item ? item.sku : 'SKU',
+          source_location_name: sl ? sl.name : 'Src',
+          destination_location_name: dl ? dl.name : 'Dest'
+        };
+      });
+
+      if (lowerQuery.includes('id = $1')) {
+        const t = tList.find(x => x.id == params[0]);
+        return { rows: t ? [t] : [] };
+      }
+      return { rows: tList };
+    }
+
+    if (lowerQuery.startsWith('insert into transfers')) {
+      const [source_location_id, destination_location_id, item_id, quantity, created_by] = params;
+      const newT = {
+        id: this.transferIdSeq++,
+        source_location_id: parseInt(source_location_id),
+        destination_location_id: parseInt(destination_location_id),
+        item_id: parseInt(item_id),
+        quantity: parseInt(quantity),
+        status: 'REQUESTED',
+        created_by: created_by ? parseInt(created_by) : null,
+        created_at: new Date()
+      };
+      this.transfers.push(newT);
+      return { rows: [newT] };
+    }
+
+    if (lowerQuery.startsWith('update transfers')) {
+      if (lowerQuery.includes("status = 'dispatched'")) {
+        const [batch, id] = params;
+        const t = this.transfers.find(x => x.id == id);
+        if (t) {
+          t.status = 'DISPATCHED';
+          t.batch = batch;
+          return { rows: [t] };
+        }
+      } else if (lowerQuery.includes("status = 'received'")) {
+        const [id] = params;
+        const t = this.transfers.find(x => x.id == id);
+        if (t) {
+          t.status = 'RECEIVED';
+          return { rows: [t] };
+        }
+      } else {
+        const [status, id] = params;
+        const t = this.transfers.find(x => x.id == id);
+        if (t) {
+          t.status = status;
+          return { rows: [t] };
+        }
+      }
+      return { rows: [] };
+    }
+
+    // 11. CUSTOMER ORDERS queries
+    if (lowerQuery.includes('from customer_orders')) {
+      const coList = this.customer_orders.map(co => {
+        const user = this.users.find(u => u.id === co.user_id);
+        return {
+          ...co,
+          sales_user: user ? user.username : 'Sales'
+        };
+      });
+      if (lowerQuery.includes('id = $1')) {
+        const co = coList.find(c => c.id == params[0]);
+        return { rows: co ? [co] : [] };
+      }
+      return { rows: coList };
+    }
+
+    if (lowerQuery.startsWith('insert into customer_orders')) {
+      const [customer_name, user_id, status] = params;
+      const newCO = {
+        id: this.customerOrderIdSeq++,
+        customer_name,
+        user_id: user_id ? parseInt(user_id) : null,
+        status: status || 'PENDING',
+        created_at: new Date()
+      };
+      this.customer_orders.push(newCO);
+      return { rows: [newCO] };
+    }
+
+    if (lowerQuery.startsWith('update customer_orders')) {
+      const [status, id] = params;
+      const co = this.customer_orders.find(c => c.id == id);
+      if (co) {
+        co.status = status;
+        return { rows: [co] };
+      }
+      return { rows: [] };
+    }
+
+    // 12. ORDER ITEMS queries
+    if (lowerQuery.includes('from order_items')) {
+      const oiList = this.order_items.map(oi => {
+        const item = this.items.find(i => i.id === oi.item_id);
+        return {
+          ...oi,
+          item_name: item ? item.name : 'Unknown Item',
+          item_sku: item ? item.sku : 'SKU'
+        };
+      });
+      if (lowerQuery.includes('order_id = $1')) {
+        const oi = oiList.filter(o => o.order_id == params[0]);
+        return { rows: oi };
+      }
+      return { rows: oiList };
+    }
+
+    if (lowerQuery.startsWith('insert into order_items')) {
+      const [order_id, item_id, location_id, batch, quantity, price] = params;
+      const newOI = {
+        id: this.orderItemIdSeq++,
+        order_id: parseInt(order_id),
+        item_id: parseInt(item_id),
+        location_id: parseInt(location_id),
+        batch: batch,
+        quantity: parseInt(quantity),
+        price: parseFloat(price)
+      };
+      this.order_items.push(newOI);
+      return { rows: [newOI] };
+    }
+
+    // 13. INVENTORY TRANSACTIONS queries
+    if (lowerQuery.includes('from inventory_transactions')) {
+      const tList = this.inventory_transactions.map(it => {
+        const inv = this.inventory.find(i => i.id === it.inventory_id);
+        const item = inv ? this.items.find(i => i.id === inv.item_id) : null;
+        const loc = inv ? this.locations.find(l => l.id === inv.location_id) : null;
+        const user = this.users.find(u => u.id === it.created_by);
+        return {
+          ...it,
+          batch: inv ? inv.batch : 'N/A',
+          item_name: item ? item.name : 'Item',
+          location_name: loc ? loc.name : 'Location',
           creator_name: user ? user.username : 'System'
         };
       });
-      items.sort((a, b) => b.id - a.id);
-      return { rows: items };
+      tList.sort((a, b) => b.id - a.id);
+      return { rows: tList };
     }
 
-    if (lowerQuery.startsWith('insert into sales_challans')) {
-      // (challan_number, customer_id, status, total_amount, created_by)
-      const [challan_number, customer_id, status, total_amount, created_by] = params;
-      const newCh = {
-        id: this.challanIdSeq++,
-        challan_number,
-        customer_id: parseInt(customer_id),
-        status,
-        total_amount: parseFloat(total_amount),
+    if (lowerQuery.startsWith('insert into inventory_transactions')) {
+      const [inventory_id, transaction_type, quantity, created_by] = params;
+      const newIT = {
+        id: this.inventoryTransactionIdSeq++,
+        inventory_id: parseInt(inventory_id),
+        transaction_type,
+        quantity: parseInt(quantity),
         created_by: created_by ? parseInt(created_by) : null,
         created_at: new Date()
       };
-      this.sales_challans.push(newCh);
-      return { rows: [newCh] };
-    }
-
-    if (lowerQuery.startsWith('update sales_challans')) {
-      // SET status = $1 WHERE id = $2 or full update
-      if (lowerQuery.includes('status = $1')) {
-        const [status, id] = params;
-        const ch = this.sales_challans.find(c => c.id === parseInt(id));
-        if (ch) {
-          ch.status = status;
-          return { rows: [ch] };
-        }
-      } else {
-        // Full update: customer_id = $1, total_amount = $2 WHERE id = $3
-        const [customer_id, total_amount, id] = params;
-        const ch = this.sales_challans.find(c => c.id === parseInt(id));
-        if (ch) {
-          ch.customer_id = parseInt(customer_id);
-          ch.total_amount = parseFloat(total_amount);
-          return { rows: [ch] };
-        }
-      }
-      return { rows: [] };
-    }
-
-    // 9. Challan items
-    if (lowerQuery.includes('from sales_challan_items')) {
-      const challanId = params[0];
-      const items = this.sales_challan_items
-        .filter(item => item.challan_id === parseInt(challanId))
-        .map(item => {
-          const prod = this.products.find(p => p.id === item.product_id);
-          return {
-            ...item,
-            product_name: prod ? prod.name : 'Unknown Product',
-            product_sku: prod ? prod.sku : 'N/A'
-          };
-        });
-      return { rows: items };
-    }
-
-    if (lowerQuery.startsWith('insert into sales_challan_items')) {
-      const [challan_id, product_id, quantity, unit_price] = params;
-      const newItem = {
-        id: this.itemIdSeq++,
-        challan_id: parseInt(challan_id),
-        product_id: parseInt(product_id),
-        quantity: parseInt(quantity),
-        unit_price: parseFloat(unit_price)
-      };
-      this.sales_challan_items.push(newItem);
-      return { rows: [newItem] };
+      this.inventory_transactions.push(newIT);
+      return { rows: [newIT] };
     }
 
     return { rows: [] };
