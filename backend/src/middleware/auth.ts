@@ -5,7 +5,7 @@ export interface AuthRequest extends Request {
   user?: {
     id: number;
     username: string;
-    role: 'Admin' | 'Sales' | 'Warehouse' | 'Accounts';
+    role: 'ADMIN' | 'OPERATIONS' | 'SALES';
   };
 }
 
@@ -29,7 +29,7 @@ export const authenticateToken = (req: AuthRequest, res: Response, next: NextFun
   });
 };
 
-export const requireRole = (allowedRoles: ('Admin' | 'Sales' | 'Warehouse' | 'Accounts')[]) => {
+export const requireRole = (allowedRoles: ('ADMIN' | 'OPERATIONS' | 'SALES')[]) => {
   return (req: AuthRequest, res: Response, next: NextFunction) => {
     if (!req.user) {
       return res.status(401).json({ error: 'Unauthorized' });

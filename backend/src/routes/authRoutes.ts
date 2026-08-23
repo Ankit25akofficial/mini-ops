@@ -6,7 +6,7 @@ import { validate } from '../middleware/validation';
 const router = Router();
 
 router.post('/login', validate(loginSchema), login);
-router.post('/register', authenticateToken as any, requireRole(['Admin']) as any, validate(registerSchema), register);
+router.post('/register', authenticateToken as any, requireRole(['ADMIN']) as any, validate(registerSchema), register);
 router.get('/me', authenticateToken as any, getMe);
 
 export default router;

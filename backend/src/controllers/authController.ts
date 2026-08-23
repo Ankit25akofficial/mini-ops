@@ -21,7 +21,7 @@ export const registerSchema = z.object({
     username: z.string().min(3, 'Username must be at least 3 characters'),
     email: z.string().email('Invalid email address'),
     password: z.string().min(6, 'Password must be at least 6 characters'),
-    role: z.enum(['Admin', 'Sales', 'Warehouse', 'Accounts'], {
+    role: z.enum(['ADMIN', 'OPERATIONS', 'SALES'], {
       errorMap: () => ({ message: 'Invalid role' }),
     }),
   }),
@@ -32,12 +32,19 @@ export const login = async (req: AuthRequest, res: Response) => {
 
   try {
     let normalizedUsername = username ? username.trim().toLowerCase() : '';
+    // Optional helper normalization matching client fallback
     if (normalizedUsername === 'admin123') normalizedUsername = 'admin';
     if (normalizedUsername === 'sales123') normalizedUsername = 'sales';
-    if (normalizedUsername === 'warehouse123') normalizedUsername = 'warehouse';
-    if (normalizedUsername === 'accounts123') normalizedUsername = 'accounts';
+    if (normalizedUsername === 'ops123') normalizedUsername = 'ops';
 
-    const userRes = await pool.query('SELECT * FROM users WHERE username = $1 OR email = $1', [normalizedUsername]);
+    // Retrieve user and join with roles to get the role name
+    const userRes = await pool.query(
+      `SELECT u.*, r.name as role 
+       FROM users u 
+       JOIN roles r ON u.role_id = r.id 
+       WHERE u.username = $1 OR u.email = $1`,
+      [normalizedUsername]
+    );
     
     if (userRes.rows.length === 0) {
       return res.status(401).json({ error: 'Invalid username/email or password' });
@@ -81,16 +88,28 @@ export const register = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Username or email already exists' });
     }
 
+    // Get role id from db
+    const roleRes = await pool.query('SELECT id FROM roles WHERE name = $1', [role]);
+    if (roleRes.rows.length === 0) {
+      return res.status(400).json({ error: 'Invalid role' });
+    }
+    const roleId = roleRes.rows[0].id;
+
     const hashedPassword = await bcrypt.hash(password, 10);
     const newUserRes = await pool.query(
-      'INSERT INTO users (username, email, password, role) VALUES ($1, $2, $3, $4) RETURNING id, username, email, role',
-      [username, email, hashedPassword, role]
+      `INSERT INTO users (username, email, password, role_id) 
+       VALUES ($1, $2, $3, $4) 
+       RETURNING id, username, email`,
+      [username, email, hashedPassword, roleId]
     );
 
     const newUser = newUserRes.rows[0];
     return res.status(201).json({
       message: 'User registered successfully',
-      user: newUser,
+      user: {
+        ...newUser,
+        role,
+      },
     });
   } catch (error) {
     console.error('Registration error:', error);
@@ -104,7 +123,13 @@ export const getMe = async (req: AuthRequest, res: Response) => {
   }
 
   try {
-    const userRes = await pool.query('SELECT id, username, email, role FROM users WHERE id = $1', [req.user.id]);
+    const userRes = await pool.query(
+      `SELECT u.id, u.username, u.email, r.name as role 
+       FROM users u 
+       JOIN roles r ON u.role_id = r.id 
+       WHERE u.id = $1`,
+      [req.user.id]
+    );
     if (userRes.rows.length === 0) {
       return res.status(404).json({ error: 'User not found' });
     }
